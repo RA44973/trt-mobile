@@ -1,12 +1,12 @@
-const CACHE_NAME = 'trt-mobile-v1-5';
+const CACHE_NAME = 'trt-mobile-v1-5-1';
 const SHELL = [
   './',
   './index.html',
   './styles.css',
   './app.js',
   './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', event => {
