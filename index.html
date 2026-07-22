@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#176b4d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="ТРТ">
+  <title>ТРТ — мобильный помощник</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div>
+      <div class="topbar-title">ТРТ <span style="font-size:11px;color:#98a2b3;font-weight:700;">v1.5</span></div>
+      <div id="topbar-subtitle" class="topbar-subtitle">Мобильный помощник</div>
+    </div>
+    <button id="quick-nearest-button" class="icon-button" type="button" aria-label="Найти ближайшую точку" title="Ближайшая ТРТ">
+      <svg viewBox="0 0 24 24"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8Zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <section id="screen-map" class="screen active">
+      <div class="map-toolbar">
+        <input id="map-search" class="search-box" type="search" placeholder="Поиск ТРТ или адреса">
+        <button id="map-location-button" class="floating-button" type="button" aria-label="Моё местоположение">
+          <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm8.94 3A9 9 0 0 0 13 3.06V1h-2v2.06A9 9 0 0 0 3.06 11H1v2h2.06A9 9 0 0 0 11 20.94V23h2v-2.06A9 9 0 0 0 20.94 13H23v-2h-2.06ZM12 19a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg>
+        </button>
+      </div>
+      <div id="map"></div>
+      <div id="map-empty" class="empty-state hidden">
+        <h3>Данные ТРТ ещё не загружены</h3>
+        <p>Перейдите в настройки и импортируйте JSON, скачанный с компьютерного сайта.</p>
+      </div>
+    </section>
+
+    <section id="screen-points" class="screen">
+      <div class="screen-inner">
+        <h2 class="section-title">Торговые точки <span id="points-count" class="counter-pill">0</span></h2>
+        <div class="list-toolbar">
+          <input id="points-search" type="search" placeholder="Название, адрес, менеджер">
+          <select id="points-filter">
+            <option value="all">Все точки</option>
+            <option value="withTasks">С задачами</option>
+            <option value="visited">Посещённые</option>
+            <option value="withSales">С продажами</option>
+          </select>
+        </div>
+        <div id="points-list" class="trt-list"></div>
+      </div>
+    </section>
+
+    <section id="screen-tasks" class="screen">
+      <div class="screen-inner">
+        <h2 class="section-title">Задачи <span id="tasks-count" class="counter-pill">0</span></h2>
+        <div class="list-toolbar">
+          <input id="tasks-search" type="search" placeholder="Поиск задач">
+          <select id="tasks-filter">
+            <option value="open">Открытые</option>
+            <option value="overdue">Просроченные</option>
+            <option value="done">Выполненные</option>
+            <option value="all">Все</option>
+          </select>
+        </div>
+        <div id="tasks-list"></div>
+      </div>
+    </section>
+
+    <section id="screen-settings" class="screen">
+      <div class="screen-inner">
+        <h2 class="section-title">Настройки</h2>
+
+        <div class="card settings-block">
+          <h3 class="card-title">Импорт ТРТ</h3>
+          <div class="import-zone">
+            <p>Выберите файл <b>ТРТ_для_мобильного_приложения…json</b>, скачанный с компьютерной версии.</p>
+            <input id="mobile-import-input" type="file" accept=".json,application/json" hidden>
+            <button id="mobile-import-button" class="primary-button" type="button">Загрузить данные ТРТ</button>
+          </div>
+          <div id="import-status" class="file-note"></div>
+        </div>
+
+        <div class="card settings-block">
+          <h3 class="card-title">Данные на устройстве</h3>
+          <div class="data-stat"><span>ТРТ</span><b id="stat-trts">0</b></div>
+          <div class="data-stat"><span>ТРТ с продажами</span><b id="stat-sales">0</b></div>
+          <div class="data-stat"><span>Посещения</span><b id="stat-visits">0</b></div>
+          <div class="data-stat"><span>Задачи</span><b id="stat-tasks">0</b></div>
+          <div class="data-stat"><span>Фото и видео</span><b id="stat-media">0</b></div>
+          <button id="export-backup-button" class="secondary-button" type="button" style="margin-top:12px;">Скачать резервную копию без фото/видео</button>
+          <input id="restore-backup-input" type="file" accept=".json,application/json" hidden>
+          <button id="restore-backup-button" class="secondary-button" type="button" style="margin-top:8px;">Восстановить резервную копию</button>
+        </div>
+
+        <div class="card settings-block">
+          <h3 class="card-title">Хранение</h3>
+          <div class="notice">
+            В первой версии карточки, задачи, посещения, фото и видео хранятся только на этом устройстве.
+            Не очищайте данные браузера. Синхронизация с компьютером и сотрудниками будет подключена следующим этапом.
+          </div>
+          <button id="clear-app-button" class="danger-button" type="button" style="margin-top:12px;">Удалить все данные приложения</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="nav-button active" data-screen="map" type="button">
+      <svg viewBox="0 0 24 24"><path d="m15 5-6-2-6 2v16l6-2 6 2 6-2V3l-6 2Zm-5-.82 4 1.33v13.31l-4-1.33V4.18Zm-5 2.26 3-1v12.12l-3 1V6.44Zm14 11.12-3 1V6.44l3-1v12.12Z"/></svg>
+      Карта
+    </button>
+    <button class="nav-button" data-screen="points" type="button">
+      <svg viewBox="0 0 24 24"><path d="M4 5h16v3H4V5Zm0 5h16v3H4v-3Zm0 5h16v3H4v-3Z"/></svg>
+      Точки
+    </button>
+    <button class="nav-button" data-screen="tasks" type="button">
+      <svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1S9.6 1.84 9.18 3H5a2 2 0 0 0-2 2v16h18V5a2 2 0 0 0-2-2Zm-7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2Zm-2 14-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8Z"/></svg>
+      Задачи
+    </button>
+    <button class="nav-button" data-screen="settings" type="button">
+      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.07-.94l2.03-1.58-2-3.46-2.39.96a7.4 7.4 0 0 0-1.62-.94L14.73 3h-4l-.36 2.04c-.58.24-1.12.55-1.62.94l-2.39-.96-2 3.46 2.03 1.58c-.05.31-.08.65-.08.94s.03.63.08.94l-2.03 1.58 2 3.46 2.39-.96c.5.39 1.04.7 1.62.94L10.73 21h4l.36-2.04c.58-.24 1.12-.55 1.62-.94l2.39.96 2-3.46-2.02-1.58ZM12.73 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/></svg>
+      Настройки
+    </button>
+  </nav>
+</div>
+
+<section id="detail-overlay" class="detail-overlay" aria-hidden="true">
+  <header class="detail-header">
+    <button id="detail-close" class="icon-button" type="button" aria-label="Назад">
+      <svg viewBox="0 0 24 24"><path d="m15.41 7.41-1.42-1.42L8 12l5.99 6.01 1.42-1.42L10.83 12l4.58-4.59Z"/></svg>
+    </button>
+    <div class="detail-heading">
+      <h2 id="detail-title" class="detail-title">ТРТ</h2>
+      <div id="detail-address" class="detail-address"></div>
+    </div>
+    <button id="detail-location" class="icon-button" type="button" aria-label="Показать на карте">
+      <svg viewBox="0 0 24 24"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8Zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"/></svg>
+    </button>
+  </header>
+
+  <div class="detail-body">
+    <div class="card">
+      <div class="detail-grid">
+        <div class="info-box"><div class="info-label">Направление</div><div id="detail-direction" class="info-value">—</div></div>
+        <div class="info-box"><div class="info-label">Менеджер</div><div id="detail-manager" class="info-value">—</div></div>
+        <div class="info-box"><div class="info-label">Формат</div><div id="detail-format" class="info-value">—</div></div>
+        <div class="info-box"><div class="info-label">Продажи / мес.</div><div id="detail-size" class="info-value">—</div></div>
+      </div>
+      <div class="detail-actions">
+        <button id="start-visit-button" class="primary-button" type="button">Зафиксировать визит</button>
+        <button id="new-task-button" class="secondary-button" type="button">Поставить задачу</button>
+        <button id="open-sales-button" class="secondary-button sales-open-button" type="button">Показать продажи</button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-button active" data-tab="info" type="button">Карточка</button>
+      <button class="tab-button" data-tab="sales" type="button">Продажи</button>
+      <button class="tab-button" data-tab="visits" type="button">Визиты</button>
+      <button class="tab-button" data-tab="media" type="button">Фото/видео</button>
+      <button class="tab-button" data-tab="tasks" type="button">Задачи</button>
+    </div>
+
+    <div id="tab-info" class="tab-panel active">
+      <div class="card">
+        <h3 class="card-title">Дополнительная информация</h3>
+        <div class="form-grid">
+          <div class="field-group">
+            <label class="field-label" for="edit-contact">Контактное лицо</label>
+            <input id="edit-contact" class="text-input" type="text">
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="edit-phone">Телефон</label>
+            <input id="edit-phone" class="text-input" type="tel">
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="edit-actual-size">Фактический размер</label>
+            <input id="edit-actual-size" class="text-input" type="number" step="1" min="0">
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="edit-stands">Количество стендов</label>
+            <input id="edit-stands" class="text-input" type="number" step="1" min="0">
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="edit-potential">Потенциал точки</label>
+          <select id="edit-potential" class="select-input">
+            <option value="">Не определён</option>
+            <option value="Высокий">Высокий</option>
+            <option value="Средний">Средний</option>
+            <option value="Низкий">Низкий</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="edit-brands">Бренды и конкуренты</label>
+          <textarea id="edit-brands" class="text-area"></textarea>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="edit-notes">Общие заметки</label>
+          <textarea id="edit-notes" class="text-area"></textarea>
+        </div>
+        <button id="save-trt-button" class="primary-button" type="button">Сохранить карточку</button>
+      </div>
+    </div>
+
+
+    <div id="tab-sales" class="tab-panel">
+      <div id="sales-content"></div>
+    </div>
+
+    <div id="tab-visits" class="tab-panel">
+      <div id="visits-list" class="timeline"></div>
+    </div>
+
+    <div id="tab-media" class="tab-panel">
+      <div class="card">
+        <h3 class="card-title">Добавить материалы</h3>
+        <div class="button-row">
+          <button id="add-photo-button" class="secondary-button" type="button">Сделать фото</button>
+          <button id="add-video-button" class="secondary-button" type="button">Снять видео</button>
+        </div>
+        <input id="photo-input" type="file" accept="image/*" capture="environment" multiple hidden>
+        <input id="video-input" type="file" accept="video/*" capture="environment" multiple hidden>
+        <div class="file-note">Файлы сохраняются на этом устройстве. Большие видео могут быстро занять память браузера.</div>
+      </div>
+      <div id="media-grid" class="media-grid"></div>
+    </div>
+
+    <div id="tab-tasks" class="tab-panel">
+      <div id="point-tasks-list"></div>
+    </div>
+  </div>
+</section>
+
+<div id="visit-modal" class="modal-backdrop">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h2 class="modal-title">Новый визит</h2>
+    <div class="field-group">
+      <label class="field-label" for="visit-result">Результат визита</label>
+      <select id="visit-result" class="select-input">
+        <option value="Переговоры проведены">Переговоры проведены</option>
+        <option value="Договорённость достигнута">Договорённость достигнута</option>
+        <option value="Нужен повторный визит">Нужен повторный визит</option>
+        <option value="Отказ">Отказ</option>
+        <option value="Точка закрыта">Точка закрыта</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="visit-next-step">Следующий шаг</label>
+      <input id="visit-next-step" class="text-input" type="text" placeholder="Например: отправить КП">
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="visit-comment">Комментарий</label>
+      <textarea id="visit-comment" class="text-area" placeholder="Что увидели и о чём договорились"></textarea>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Фото и видео к визиту</label>
+      <div class="button-row">
+        <button id="visit-photo-button" class="secondary-button" type="button">Фото</button>
+        <button id="visit-video-button" class="secondary-button" type="button">Видео</button>
+      </div>
+      <input id="visit-photo-input" type="file" accept="image/*" capture="environment" multiple hidden>
+      <input id="visit-video-input" type="file" accept="video/*" capture="environment" multiple hidden>
+      <div id="visit-files-note" class="file-note">Файлы не выбраны</div>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary-button modal-cancel" type="button">Отмена</button>
+      <button id="save-visit-button" class="primary-button" type="button">Сохранить визит</button>
+    </div>
+  </div>
+</div>
+
+<div id="task-modal" class="modal-backdrop">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <h2 class="modal-title">Новая задача</h2>
+    <div class="field-group">
+      <label class="field-label" for="task-title">Название</label>
+      <input id="task-title" class="text-input" type="text" placeholder="Что нужно сделать">
+    </div>
+    <div class="form-grid">
+      <div class="field-group">
+        <label class="field-label" for="task-assignee">Ответственный</label>
+        <input id="task-assignee" class="text-input" type="text" placeholder="Сотрудник">
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="task-due">Срок</label>
+        <input id="task-due" class="date-input" type="date">
+      </div>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="task-priority">Приоритет</label>
+      <select id="task-priority" class="select-input">
+        <option value="Средний">Средний</option>
+        <option value="Высокий">Высокий</option>
+        <option value="Низкий">Низкий</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="task-description">Описание</label>
+      <textarea id="task-description" class="text-area"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary-button modal-cancel" type="button">Отмена</button>
+      <button id="save-task-button" class="primary-button" type="button">Создать задачу</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>
