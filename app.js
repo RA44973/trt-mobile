@@ -250,7 +250,7 @@ function initMap() {
     mapNode.innerHTML = '<div class="empty-state map-library-error"><h3>Карта временно недоступна</h3><p>Список ТРТ, продажи, визиты и задачи продолжают работать. Проверьте интернет и откройте приложение повторно.</p></div>';
     return;
   }
-  map = L.map('map', {zoomControl:false}).setView([55.65, 37.62], 8);
+  map = L.map('map', {zoomControl:false, attributionControl:false}).setView([55.65, 37.62], 8);
   L.control.zoom({position:'bottomright'}).addTo(map);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom:19,
@@ -530,6 +530,75 @@ function setDetailTab(name) {
 }
 
 
+function niceSalesMax(value) {
+  if (!Number.isFinite(value) || value <= 0) return 10;
+  const power = Math.pow(10, Math.floor(Math.log10(value)));
+  const normalized = value / power;
+  let factor = 10;
+  if (normalized <= 1) factor = 1;
+  else if (normalized <= 2) factor = 2;
+  else if (normalized <= 5) factor = 5;
+  return factor * power;
+}
+
+function buildSalesChartSvg(values25, values26, unit) {
+  const width = 760;
+  const height = 360;
+  const margin = { top: 18, right: 12, bottom: 54, left: 46 };
+  const chartWidth = width - margin.left - margin.right;
+  const chartHeight = height - margin.top - margin.bottom;
+  const allValues = [];
+  values25.forEach(v => allValues.push(salesNumber(v) ?? 0));
+  values26.forEach(v => allValues.push(salesNumber(v) ?? 0));
+  const maxValue = Math.max(1, ...allValues);
+  const axisMax = niceSalesMax(maxValue * 1.15);
+  const steps = 4;
+  const groupWidth = chartWidth / SALES_MONTHS.length;
+  const barWidth = Math.max(8, Math.min(16, groupWidth * 0.22));
+  const groupCenterOffset = groupWidth / 2;
+
+  let svg = `<svg class="sales-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" aria-label="График продаж">`;
+
+  for (let step = 0; step <= steps; step++) {
+    const value = axisMax * step / steps;
+    const y = margin.top + chartHeight - (value / axisMax * chartHeight);
+    svg += `<line class="sales-grid-line" x1="${margin.left}" y1="${y}" x2="${width - margin.right}" y2="${y}"></line>`;
+    svg += `<text class="sales-axis-label" x="${margin.left - 8}" y="${y + 4}" text-anchor="end">${Math.round(value).toLocaleString('ru-RU')}</text>`;
+  }
+
+  svg += `<line class="sales-axis-line" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${margin.top + chartHeight}"></line>`;
+  svg += `<line class="sales-axis-line" x1="${margin.left}" y1="${margin.top + chartHeight}" x2="${width - margin.right}" y2="${margin.top + chartHeight}"></line>`;
+
+  SALES_MONTHS.forEach((month, index) => {
+    const x = margin.left + index * groupWidth;
+    const baseY = margin.top + chartHeight;
+    const v25 = salesNumber(values25[index]) ?? 0;
+    const v26 = salesNumber(values26[index]) ?? 0;
+    const h25 = v25 / axisMax * chartHeight;
+    const h26 = v26 / axisMax * chartHeight;
+    const x25 = x + groupCenterOffset - barWidth - 2;
+    const x26 = x + groupCenterOffset + 2;
+    const y25 = baseY - h25;
+    const y26 = baseY - h26;
+
+    svg += `<rect x="${x25}" y="${y25}" width="${barWidth}" height="${Math.max(0, h25)}" rx="4" fill="#b9dcff"></rect>`;
+    svg += `<rect x="${x26}" y="${y26}" width="${barWidth}" height="${Math.max(0, h26)}" rx="4" fill="#1677ff"></rect>`;
+
+    if (v25 > 0) {
+      svg += `<text class="sales-tooltip-value" x="${x25 + barWidth / 2}" y="${Math.max(margin.top + 12, y25 - 5)}" text-anchor="middle">${v25.toLocaleString('ru-RU')}</text>`;
+    }
+    if (v26 > 0) {
+      svg += `<text class="sales-tooltip-value" x="${x26 + barWidth / 2}" y="${Math.max(margin.top + 12, y26 - 5)}" text-anchor="middle">${v26.toLocaleString('ru-RU')}</text>`;
+    }
+
+    svg += `<text class="sales-month-label" x="${x + groupCenterOffset}" y="${baseY + 20}" text-anchor="middle">${month}</text>`;
+  });
+
+  svg += `</svg>`;
+  return svg;
+}
+
+
 function renderSales() {
   const trt = selectedTrt();
   const container = $('sales-content');
@@ -541,30 +610,26 @@ function renderSales() {
   }
 
   const unit = trt.unit || '';
-  const s25 = salesArray(trt, 2025);
-  const s26 = salesArray(trt, 2026);
+  const s25 = SALES_MONTHS.map((_, index) => salesNumber(salesArray(trt, 2025)[index]));
+  const s26 = SALES_MONTHS.map((_, index) => salesNumber(salesArray(trt, 2026)[index]));
   const months = matchingSalesMonths(trt);
   const y25 = salesSum(s25, months);
   const y26 = salesSum(s26, months);
   const yoy = y25 ? ((y26 - y25) / y25) * 100 : null;
   const yoyClass = yoy == null ? 'neutral' : yoy > 0 ? 'positive' : yoy < 0 ? 'negative' : 'neutral';
   const yoyText = yoy == null ? '—' : `${yoy > 0 ? '+' : ''}${yoy.toFixed(1).replace('.', ',')}%`;
-  const maxValue = Math.max(1, ...s25.map(value => salesNumber(value) ?? 0), ...s26.map(value => salesNumber(value) ?? 0));
+
+  const chartSvg = buildSalesChartSvg(s25, s26, unit);
 
   const rows = SALES_MONTHS.map((month, index) => {
-    const v25 = salesNumber(s25[index]);
-    const v26 = salesNumber(s26[index]);
+    const v25 = s25[index];
+    const v26 = s26[index];
     if (v25 == null && v26 == null) return '';
-    const width25 = v25 == null ? 0 : Math.max(2, Math.round(v25 / maxValue * 100));
-    const width26 = v26 == null ? 0 : Math.max(2, Math.round(v26 / maxValue * 100));
-    return `
-      <div class="sales-month-row">
-        <div class="sales-month-name">${month}</div>
-        <div class="sales-bars">
-          <div class="sales-bar-line"><span class="sales-year-label">25</span><div class="sales-bar-track"><div class="sales-bar sales-bar-2025" style="width:${width25}%"></div></div><b>${formatSales(v25)}</b></div>
-          <div class="sales-bar-line"><span class="sales-year-label">26</span><div class="sales-bar-track"><div class="sales-bar sales-bar-2026" style="width:${width26}%"></div></div><b>${formatSales(v26)}</b></div>
-        </div>
-      </div>`;
+    return `<tr>
+      <td>${month}</td>
+      <td class="year-2025">${formatSales(v25, unit)}</td>
+      <td class="year-2026">${formatSales(v26, unit)}</td>
+    </tr>`;
   }).join('');
 
   container.innerHTML = `
@@ -573,11 +638,26 @@ function renderSales() {
       <div class="sales-summary-card"><span>${SALES_MONTHS[0]}–${SALES_MONTHS[months-1]} 2026</span><b>${formatSales(y26, unit)}</b></div>
       <div class="sales-summary-card sales-yoy ${yoyClass}"><span>Изменение</span><b>${yoyText}</b></div>
     </div>
-    <div class="card sales-card">
-      <div class="sales-card-head"><h3 class="card-title">Продажи по месяцам</h3><span class="sales-unit">${escapeHtml(unit)}</span></div>
+
+    <div class="sales-chart-wrap">
+      <div class="sales-card-head">
+        <h3 class="card-title">График продаж по месяцам</h3>
+        <span class="sales-unit">${escapeHtml(unit)}</span>
+      </div>
       <div class="sales-legend"><span><i class="legend-2025"></i>2025</span><span><i class="legend-2026"></i>2026</span></div>
-      <div class="sales-months">${rows}</div>
-    </div>`;
+      ${chartSvg}
+    </div>
+
+    <table class="sales-table">
+      <thead>
+        <tr>
+          <th>Месяц</th>
+          <th>2025</th>
+          <th>2026</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
 function renderVisits() {
