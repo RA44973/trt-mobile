@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trt-mobile-v1-6';
+const CACHE_NAME = 'trt-mobile-v1-7';
 const SHELL = [
   './',
   './index.html',
@@ -29,7 +29,12 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+
   const request = event.request;
+  const requestUrl = new URL(request.url);
+
+  // Внешние запросы, включая API авторизации и карты, никогда не кешируем.
+  if (requestUrl.origin !== self.location.origin) return;
 
   if (request.mode === 'navigate') {
     event.respondWith(

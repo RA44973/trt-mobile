@@ -337,3 +337,36 @@ button { -webkit-tap-highlight-color:transparent; }
 .sales-table th { color:#667085; font-weight:700; background:#fbfcfd; }
 .sales-table .year-2025 { color:#4b84c6; font-weight:700; }
 .sales-table .year-2026 { color:#1264db; font-weight:700; }
+
+
+/* v1.7 — серверная авторизация */
+.auth-screen {
+  position:fixed; inset:0; z-index:9000; display:flex; align-items:center;
+  justify-content:center; padding:22px; background:linear-gradient(160deg,#eef7f2 0%,#f4f6f8 52%,#e8f1ff 100%);
+}
+.auth-card {
+  width:min(420px,100%); background:#fff; border-radius:22px; padding:24px 20px;
+  box-shadow:0 24px 70px rgba(16,24,40,.18);
+}
+.auth-logo {
+  width:58px; height:58px; display:flex; align-items:center; justify-content:center;
+  border-radius:17px; background:var(--primary); color:#fff; font-weight:900; font-size:20px;
+  box-shadow:0 10px 24px rgba(23,107,77,.28);
+}
+.auth-card h1 { margin:18px 0 6px; font-size:24px; }
+.auth-subtitle { margin:0 0 20px; color:var(--muted); line-height:1.45; }
+.auth-status { min-height:20px; margin-top:10px; color:var(--danger); font-size:12px; line-height:1.4; }
+.auth-status.success { color:var(--primary); }
+.auth-note {
+  margin-top:15px; padding:11px; border-radius:12px; background:#f8fafb;
+  color:var(--muted); font-size:11px; line-height:1.45;
+}
+.offline-banner {
+  position:fixed; z-index:8500; top:0; left:0; right:0; min-height:28px; padding:6px 12px;
+  background:#fff3d6; color:#7a4d00; text-align:center; font-size:11px; font-weight:800;
+  border-bottom:1px solid #f5d98a;
+}
+.offline-banner:not(.hidden) + .app-shell .topbar { top:28px; }
+.offline-banner:not(.hidden) + .app-shell .map-toolbar { top:98px; }
+.account-offline { color:#b54708; }
+.account-online { color:#067647; }

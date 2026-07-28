@@ -14,10 +14,33 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-<div class="app-shell">
+<section id="auth-screen" class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">ТРТ</div>
+    <h1>Мобильный помощник</h1>
+    <p class="auth-subtitle">Войдите под своей рабочей учётной записью.</p>
+    <form id="login-form" novalidate>
+      <div class="field-group">
+        <label class="field-label" for="login-input">Логин</label>
+        <input id="login-input" class="text-input" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="password-input">Пароль</label>
+        <input id="password-input" class="text-input" type="password" autocomplete="current-password" required>
+      </div>
+      <button id="login-button" class="primary-button" type="submit">Войти</button>
+      <div id="login-status" class="auth-status" role="status"></div>
+    </form>
+    <div class="auth-note">Первый вход требует подключения к интернету. После подтверждённого входа приложение сможет открываться без сети в пределах срока сессии.</div>
+  </div>
+</section>
+
+<div id="offline-banner" class="offline-banner hidden">Офлайн-режим: сервер временно недоступен</div>
+
+<div class="app-shell hidden">
   <header class="topbar">
     <div>
-      <div class="topbar-title">ТРТ <span style="font-size:11px;color:#98a2b3;font-weight:700;">v1.6</span></div>
+      <div class="topbar-title">ТРТ <span style="font-size:11px;color:#98a2b3;font-weight:700;">v1.7</span></div>
       <div id="topbar-subtitle" class="topbar-subtitle">Мобильный помощник</div>
     </div>
     <button id="quick-nearest-button" class="icon-button" type="button" aria-label="Найти ближайшую точку" title="Ближайшая ТРТ">
@@ -75,6 +98,15 @@
     <section id="screen-settings" class="screen">
       <div class="screen-inner">
         <h2 class="section-title">Настройки</h2>
+
+        <div class="card settings-block">
+          <h3 class="card-title">Учётная запись</h3>
+          <div class="data-stat"><span>Сотрудник</span><b id="account-full-name">—</b></div>
+          <div class="data-stat"><span>Логин</span><b id="account-login">—</b></div>
+          <div class="data-stat"><span>Роль</span><b id="account-role">—</b></div>
+          <div class="data-stat"><span>Подключение</span><b id="account-connection">—</b></div>
+          <button id="logout-button" class="danger-button" type="button" style="margin-top:12px;">Выйти из учётной записи</button>
+        </div>
 
         <div class="card settings-block">
           <h3 class="card-title">Импорт ТРТ</h3>

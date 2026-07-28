@@ -9,6 +9,12 @@ const STORE_TASKS = 'tasks';
 const STORE_MEDIA = 'media';
 const STORE_SETTINGS = 'settings';
 
+const API_BASE_URL = 'https://d5dukure58mpc70n6ftu.uvah0e6r.apigw.yandexcloud.net';
+const AUTH_TOKEN_KEY = 'trt-auth-token';
+const AUTH_USER_KEY = 'trt-auth-user';
+const AUTH_VERIFIED_AT_KEY = 'trt-auth-verified-at';
+const AUTH_OFFLINE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
 let db = null;
 let trts = [];
 let visits = [];
@@ -20,8 +26,236 @@ let markersLayer = null;
 let userMarker = null;
 let visitFiles = [];
 let toastTimer = null;
+let sessionToken = '';
+let currentUser = null;
+let authOffline = false;
+let appInitialized = false;
 
 const $ = (id) => document.getElementById(id);
+
+
+function readStoredUser() {
+  try {
+    const raw = localStorage.getItem(AUTH_USER_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function saveAuth(token, user) {
+  sessionToken = String(token || '');
+  currentUser = user || null;
+  localStorage.setItem(AUTH_TOKEN_KEY, sessionToken);
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(currentUser));
+  localStorage.setItem(AUTH_VERIFIED_AT_KEY, String(Date.now()));
+}
+
+function clearAuth() {
+  sessionToken = '';
+  currentUser = null;
+  authOffline = false;
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_USER_KEY);
+  localStorage.removeItem(AUTH_VERIFIED_AT_KEY);
+}
+
+function setLoginStatus(message, isSuccess=false) {
+  const node = $('login-status');
+  if (!node) return;
+  node.textContent = message || '';
+  node.classList.toggle('success', Boolean(isSuccess));
+}
+
+function setLoginBusy(isBusy) {
+  const button = $('login-button');
+  if (!button) return;
+  button.disabled = isBusy;
+  button.textContent = isBusy ? 'Проверяем…' : 'Войти';
+}
+
+async function apiRequest(path, options={}) {
+  const method = options.method || 'GET';
+  const token = options.token === undefined ? sessionToken : options.token;
+  const headers = {'Content-Type':'application/json'};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeout || 15000);
+
+  try {
+    const response = await fetch(API_BASE_URL + path, {
+      method,
+      headers,
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: controller.signal,
+      cache: 'no-store'
+    });
+
+    const text = await response.text();
+    let payload = {};
+    if (text) {
+      try { payload = JSON.parse(text); }
+      catch (_) { payload = {raw:text}; }
+    }
+
+    if (!response.ok) {
+      const error = new Error(payload.error || `Ошибка сервера: ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+
+    return payload;
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      const timeoutError = new Error('Сервер не ответил вовремя. Проверьте интернет.');
+      timeoutError.isNetworkError = true;
+      throw timeoutError;
+    }
+    if (!error.status) error.isNetworkError = true;
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function updateAccountUi() {
+  if (!$('account-full-name')) return;
+  $('account-full-name').textContent = currentUser?.full_name || '—';
+  $('account-login').textContent = currentUser?.login || '—';
+  $('account-role').textContent = currentUser?.role || '—';
+  $('account-connection').textContent = authOffline ? 'Офлайн' : 'Онлайн';
+  $('account-connection').className = authOffline ? 'account-offline' : 'account-online';
+  $('offline-banner').classList.toggle('hidden', !authOffline);
+}
+
+function showLogin(message='') {
+  $('auth-screen').classList.remove('hidden');
+  document.querySelector('.app-shell').classList.add('hidden');
+  $('offline-banner').classList.add('hidden');
+  setLoginStatus(message);
+  setLoginBusy(false);
+  setTimeout(() => $('login-input')?.focus(), 50);
+}
+
+async function showApp() {
+  $('auth-screen').classList.add('hidden');
+  document.querySelector('.app-shell').classList.remove('hidden');
+  updateAccountUi();
+
+  if (!appInitialized) {
+    initMap();
+    bindEvents();
+    await refreshData();
+    appInitialized = true;
+  } else {
+    renderAll();
+  }
+
+  if (map) setTimeout(() => map.invalidateSize(), 80);
+}
+
+async function handleLogin(event) {
+  event.preventDefault();
+  const login = String($('login-input').value || '').trim().toLowerCase();
+  const password = String($('password-input').value || '');
+
+  if (!login || !password) {
+    setLoginStatus('Введите логин и пароль.');
+    return;
+  }
+
+  setLoginBusy(true);
+  setLoginStatus('Подключаемся к серверу…', true);
+
+  try {
+    const result = await apiRequest('/auth/login', {
+      method:'POST',
+      token:'',
+      body:{
+        login,
+        password,
+        device_name:`ТРТ PWA · ${navigator.platform || 'устройство'}`
+      }
+    });
+
+    saveAuth(result.session_token, result.user);
+    authOffline = false;
+    $('password-input').value = '';
+    await showApp();
+    showToast(`Вход выполнен: ${currentUser?.full_name || login}`);
+  } catch (error) {
+    setLoginStatus(error.message || 'Не удалось выполнить вход.');
+  } finally {
+    setLoginBusy(false);
+  }
+}
+
+async function restoreAuth() {
+  const storedToken = localStorage.getItem(AUTH_TOKEN_KEY) || '';
+  const storedUser = readStoredUser();
+  const verifiedAt = Number(localStorage.getItem(AUTH_VERIFIED_AT_KEY) || 0);
+
+  if (!storedToken || !storedUser) {
+    showLogin();
+    return;
+  }
+
+  sessionToken = storedToken;
+  currentUser = storedUser;
+  setLoginStatus('Проверяем сохранённую сессию…', true);
+
+  try {
+    const result = await apiRequest('/auth/me');
+    saveAuth(storedToken, result.user);
+    authOffline = false;
+    await showApp();
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      clearAuth();
+      showLogin('Сессия завершена. Войдите снова.');
+      return;
+    }
+
+    const canUseOffline = verifiedAt > 0 && Date.now() - verifiedAt <= AUTH_OFFLINE_MAX_AGE_MS;
+    if (canUseOffline) {
+      authOffline = true;
+      await showApp();
+      showToast('Приложение открыто в офлайн-режиме');
+      return;
+    }
+
+    clearAuth();
+    showLogin('Нет связи с сервером. Для первого входа нужен интернет.');
+  }
+}
+
+async function handleLogout() {
+  if (!confirm('Выйти из учётной записи на этом устройстве?')) return;
+
+  const tokenToRevoke = sessionToken;
+  try {
+    if (tokenToRevoke && !authOffline) {
+      await apiRequest('/auth/logout', {method:'POST', body:{}});
+    }
+  } catch (error) {
+    console.warn('Не удалось завершить сессию на сервере', error);
+  }
+
+  clearAuth();
+  closeTrt();
+  $('password-input').value = '';
+  showLogin('Вы вышли из учётной записи.');
+}
+
+function bindAuthEvents() {
+  $('login-form').addEventListener('submit', handleLogin);
+  $('logout-button').addEventListener('click', handleLogout);
+  window.addEventListener('online', () => {
+    if (authOffline && sessionToken) restoreAuth();
+  });
+}
 
 function uuid() {
   if (crypto.randomUUID) return crypto.randomUUID();
@@ -437,6 +671,7 @@ function renderStats() {
   $('stat-tasks').textContent = tasks.length;
   $('stat-media').textContent = mediaItems.length;
   $('topbar-subtitle').textContent = trts.length ? `${trts.length} ТРТ · ${tasks.filter(t => t.status !== 'done').length} открытых задач` : 'Мобильный помощник';
+  updateAccountUi();
 }
 
 function renderAll() {
@@ -1061,10 +1296,9 @@ async function registerServiceWorker() {
 async function init() {
   try {
     db = await openDatabase();
-    initMap();
-    bindEvents();
-    await refreshData();
+    bindAuthEvents();
     await registerServiceWorker();
+    await restoreAuth();
   } catch (error) {
     console.error(error);
     document.body.innerHTML = '<div class="empty-state"><h3>Не удалось запустить приложение</h3><p>' +
