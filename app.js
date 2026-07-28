@@ -31,7 +31,9 @@ let currentUser = null;
 let authOffline = false;
 let appInitialized = false;
 let visitsSyncPromise = null;
+let tasksSyncPromise = null;
 let saveVisitInProgress = false;
+let saveTaskInProgress = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -159,7 +161,7 @@ async function showApp() {
 
   if (!authOffline && sessionToken) {
     setTimeout(() => {
-      syncVisitsWithServer({silent:true});
+      syncAllWithServer({silent:true});
     }, 0);
   }
 }
@@ -266,7 +268,7 @@ function bindAuthEvents() {
       return;
     }
     if (sessionToken) {
-      syncVisitsWithServer({silent:false});
+      syncAllWithServer({silent:false});
     }
   });
 }
@@ -630,6 +632,200 @@ async function syncVisitsWithServer({silent=true}={}) {
 }
 
 
+function taskVersion(task) {
+  const version = Number(task?.version);
+  return Number.isInteger(version) && version > 0 ? version : 1;
+}
+
+function taskSyncPayload(task) {
+  const trt = trts.find(item => String(item.id) === String(task.trtId));
+  return {
+    id:String(task.id || ''),
+    trtId:task.trtId == null ? '' : String(task.trtId),
+    direction:String(task.direction || trt?.direction || ''),
+    assigneeId:String(task.assigneeId || currentUser?.employee_id || ''),
+    title:String(task.title || ''),
+    description:String(task.description || ''),
+    priority:String(task.priority || 'Средний'),
+    status:String(task.status || 'open'),
+    dueDate:String(task.dueDate || ''),
+    completedAt:task.completedAt || null,
+    createdAt:task.createdAt || new Date().toISOString(),
+    updatedAt:task.updatedAt || task.createdAt || new Date().toISOString(),
+    version:taskVersion(task),
+    deletedAt:task.deletedAt || null
+  };
+}
+
+async function syncOneTaskWithServer(taskId, {notify=true}={}) {
+  if (!sessionToken || authOffline || navigator.onLine === false) {
+    if (notify) showToast('Задача сохранена. Она отправится на сервер после появления интернета.');
+    return {ok:false, offline:true};
+  }
+
+  const task = await getItem(STORE_TASKS, taskId);
+  if (!task) return {ok:false, missing:true};
+  if (task.serverSyncedAt && !task.deletedAt) return {ok:true, alreadySynced:true};
+
+  try {
+    const result = await apiRequest('/tasks/sync', {
+      method:'POST',
+      timeout:20000,
+      body:{tasks:[taskSyncPayload(task)]}
+    });
+
+    const accepted = (result.task_ids || []).map(String).includes(String(taskId));
+    const deleted = (result.deleted_ids || []).map(String).includes(String(taskId));
+
+    if (!accepted && !deleted) {
+      const rejected = Array.isArray(result.rejected) ? result.rejected : [];
+      const reason = rejected[0]?.error || 'Сервер не подтвердил сохранение задачи.';
+      throw new Error(reason);
+    }
+
+    if (deleted) {
+      await deleteItem(STORE_TASKS, taskId);
+      if (notify) showToast('Задача удалена на сервере');
+    } else {
+      task.serverSyncedAt = new Date().toISOString();
+      await putItem(STORE_TASKS, task);
+      if (notify) showToast('Задача отправлена на сервер');
+    }
+
+    await refreshData();
+    return {ok:true, deleted};
+  } catch (error) {
+    console.warn('Не удалось отправить задачу на сервер', error);
+    if (notify) showToast('Задача сохранена на устройстве. Синхронизация повторится автоматически.');
+    return {ok:false, error, offline:Boolean(error.isNetworkError)};
+  }
+}
+
+async function syncTasksWithServer({silent=true}={}) {
+  if (!sessionToken || authOffline || navigator.onLine === false) {
+    return {ok:false, offline:true, uploaded:0, downloaded:0};
+  }
+
+  if (tasksSyncPromise) return tasksSyncPromise;
+
+  tasksSyncPromise = (async () => {
+    const localTasks = await getAll(STORE_TASKS);
+    const pending = localTasks.filter(item => !item.serverSyncedAt || item.deletedAt);
+    const syncedIds = new Set();
+    const deletedIds = new Set();
+    const rejected = [];
+    const batchSize = 20;
+
+    for (let start = 0; start < pending.length; start += batchSize) {
+      const batch = pending.slice(start, start + batchSize);
+      const result = await apiRequest('/tasks/sync', {
+        method:'POST',
+        timeout:20000,
+        body:{tasks:batch.map(taskSyncPayload)}
+      });
+
+      (result.task_ids || []).forEach(id => syncedIds.add(String(id)));
+      (result.deleted_ids || []).forEach(id => deletedIds.add(String(id)));
+      (result.rejected || []).forEach(item => rejected.push(item));
+    }
+
+    const syncedAt = new Date().toISOString();
+
+    if (syncedIds.size) {
+      const updatedLocal = localTasks
+        .filter(item => syncedIds.has(String(item.id)))
+        .map(item => ({
+          ...item,
+          version:taskVersion(item),
+          serverSyncedAt:syncedAt
+        }));
+      await putItems(STORE_TASKS, updatedLocal);
+    }
+
+    for (const id of deletedIds) {
+      await deleteItem(STORE_TASKS, id);
+    }
+
+    const remoteResult = await apiRequest('/tasks', {
+      method:'GET',
+      timeout:20000
+    });
+    const remoteTasks = Array.isArray(remoteResult.tasks) ? remoteResult.tasks : [];
+    const currentLocal = await getAll(STORE_TASKS);
+    const localById = new Map(currentLocal.map(item => [String(item.id), item]));
+    const remoteIds = new Set(remoteTasks.map(item => String(item.id)));
+    const merged = [];
+
+    for (const remote of remoteTasks) {
+      const id = String(remote.id);
+      const local = localById.get(id);
+
+      if (local?.deletedAt) continue;
+
+      const localIsNewer = local && !local.serverSyncedAt && taskVersion(local) > taskVersion(remote);
+      if (localIsNewer) {
+        merged.push(local);
+      } else {
+        merged.push({
+          ...(local || {}),
+          ...remote,
+          deletedAt:null,
+          serverSyncedAt:syncedAt
+        });
+      }
+    }
+
+    if (merged.length) await putItems(STORE_TASKS, merged);
+
+    // Удаление, выполненное на другом устройстве, убирает только ранее синхронизированную локальную копию.
+    for (const local of currentLocal) {
+      if (local.deletedAt) continue;
+      if (local.serverSyncedAt && !remoteIds.has(String(local.id))) {
+        await deleteItem(STORE_TASKS, local.id);
+      }
+    }
+
+    await refreshData();
+
+    return {
+      ok:true,
+      uploaded:syncedIds.size,
+      deleted:deletedIds.size,
+      downloaded:remoteTasks.length,
+      rejected
+    };
+  })();
+
+  try {
+    return await tasksSyncPromise;
+  } catch (error) {
+    console.warn('Не удалось синхронизировать задачи', error);
+    return {
+      ok:false,
+      offline:Boolean(error.isNetworkError),
+      error
+    };
+  } finally {
+    tasksSyncPromise = null;
+  }
+}
+
+async function syncAllWithServer({silent=true}={}) {
+  const visitsResult = await syncVisitsWithServer({silent:true});
+  const tasksResult = await syncTasksWithServer({silent:true});
+
+  if (!silent) {
+    if (visitsResult.ok && tasksResult.ok) {
+      showToast('Визиты и задачи синхронизированы');
+    } else {
+      showToast('Часть данных осталась на устройстве. Синхронизация повторится автоматически.');
+    }
+  }
+
+  return {visits:visitsResult, tasks:tasksResult};
+}
+
+
 async function refreshData() {
   [trts, visits, tasks, mediaItems] = await Promise.all([
     getAll(STORE_TRTS),
@@ -639,6 +835,7 @@ async function refreshData() {
   ]);
   trts.sort((a,b) => (a.client || '').localeCompare(b.client || '', 'ru'));
   visits.sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  tasks = tasks.filter(item => !item.deletedAt);
   tasks.sort((a,b) => {
     if (a.status !== b.status) return a.status === 'done' ? 1 : -1;
     return String(a.dueDate || '9999').localeCompare(String(b.dueDate || '9999'));
@@ -790,22 +987,48 @@ function taskCardHtml(task, showPoint=true) {
 function bindTaskActions(container) {
   container.querySelectorAll('[data-task-toggle]').forEach(button => {
     button.addEventListener('click', async () => {
+      if (button.disabled) return;
+      button.disabled = true;
+
       const task = tasks.find(item => item.id === button.dataset.taskToggle);
       if (!task) return;
-      task.status = task.status === 'done' ? 'open' : 'done';
-      task.completedAt = task.status === 'done' ? new Date().toISOString() : null;
-      await putItem(STORE_TASKS, task);
+
+      const updatedTask = {
+        ...task,
+        status:task.status === 'done' ? 'open' : 'done',
+        completedAt:task.status === 'done' ? null : new Date().toISOString(),
+        version:taskVersion(task) + 1,
+        updatedAt:new Date().toISOString(),
+        serverSyncedAt:null
+      };
+
+      await putItem(STORE_TASKS, updatedTask);
       await refreshData();
-      if (selectedTrtId) renderPointTasks();
+      syncOneTaskWithServer(updatedTask.id, {notify:true});
     });
   });
 
   container.querySelectorAll('[data-task-delete]').forEach(button => {
     button.addEventListener('click', async () => {
+      if (button.disabled) return;
       if (!confirm('Удалить задачу?')) return;
-      await deleteItem(STORE_TASKS, button.dataset.taskDelete);
+      button.disabled = true;
+
+      const task = tasks.find(item => item.id === button.dataset.taskDelete);
+      if (!task) return;
+
+      const tombstone = {
+        ...task,
+        deletedAt:new Date().toISOString(),
+        version:taskVersion(task) + 1,
+        updatedAt:new Date().toISOString(),
+        serverSyncedAt:null
+      };
+
+      await putItem(STORE_TASKS, tombstone);
       await refreshData();
-      if (selectedTrtId) renderPointTasks();
+      showToast('Задача удалена с устройства');
+      syncOneTaskWithServer(tombstone.id, {notify:true});
     });
   });
 
@@ -1290,10 +1513,25 @@ async function saveVisit() {
   finishVisitSave(visit, trt, files, locationPromise);
 }
 
+function setTaskSaveBusy(isBusy) {
+  const button = $('save-task-button');
+  if (!button) return;
+  if (!button.dataset.defaultText) button.dataset.defaultText = button.textContent || 'Создать задачу';
+  button.disabled = Boolean(isBusy);
+  button.textContent = isBusy ? 'Сохраняем…' : button.dataset.defaultText;
+}
+
 function openTaskModal() {
   if (!selectedTrtId) return;
+  if (saveTaskInProgress) {
+    showToast('Предыдущая задача ещё сохраняется');
+    return;
+  }
+
+  setTaskSaveBusy(false);
   $('task-title').value = '';
-  $('task-assignee').value = selectedTrt()?.manager || '';
+  $('task-assignee').value = currentUser?.full_name || '';
+  $('task-assignee').disabled = true;
   $('task-due').value = '';
   $('task-priority').value = 'Средний';
   $('task-description').value = '';
@@ -1301,28 +1539,56 @@ function openTaskModal() {
 }
 
 async function saveTask() {
+  if (saveTaskInProgress) return;
+
   const title = $('task-title').value.trim();
   if (!title) {
     showToast('Введите название задачи');
     return;
   }
+
+  saveTaskInProgress = true;
+  setTaskSaveBusy(true);
+
+  const trt = selectedTrt();
+  const now = new Date().toISOString();
   const task = {
     id:uuid(),
     trtId:selectedTrtId,
+    direction:trt?.direction || '',
     title,
-    assignee:$('task-assignee').value.trim(),
+    assignee:currentUser?.full_name || '',
+    assigneeId:currentUser?.employee_id || '',
+    createdById:currentUser?.employee_id || '',
     dueDate:$('task-due').value,
     priority:$('task-priority').value,
     description:$('task-description').value.trim(),
     status:'open',
-    createdAt:new Date().toISOString(),
-    completedAt:null
+    version:1,
+    createdAt:now,
+    updatedAt:now,
+    completedAt:null,
+    deletedAt:null,
+    serverSyncedAt:null
   };
-  await putItem(STORE_TASKS, task);
+
   closeModals();
-  await refreshData();
-  setDetailTab('tasks');
-  showToast('Задача создана');
+
+  try {
+    await putItem(STORE_TASKS, task);
+    await refreshData();
+    setDetailTab('tasks');
+    showToast('Задача сохранена на устройстве');
+  } catch (error) {
+    console.error('Не удалось сохранить задачу', error);
+    showToast('Не удалось сохранить задачу на устройстве');
+    return;
+  } finally {
+    saveTaskInProgress = false;
+    setTaskSaveBusy(false);
+  }
+
+  syncOneTaskWithServer(task.id, {notify:true});
 }
 
 async function addStandaloneMedia(files) {
