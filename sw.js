@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trt-mobile-v1-7';
+const CACHE_NAME = 'trt-mobile-v1-8-visits-sync';
 const SHELL = [
   './',
   './index.html',
@@ -21,7 +21,11 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)))
+      Promise.all(
+        keys
+          .filter(key => key.startsWith('trt-mobile-') && key !== CACHE_NAME)
+          .map(key => caches.delete(key))
+      )
     )
   );
   self.clients.claim();
@@ -38,13 +42,30 @@ self.addEventListener('fetch', event => {
 
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).then(response => {
+      fetch(request, { cache: 'no-store' }).then(response => {
         const copy = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put('./', copy)).catch(() => null);
         return response;
       }).catch(async () =>
         await caches.match('./') || await caches.match('./index.html') || Response.error()
       )
+    );
+    return;
+  }
+
+  const mustRefresh =
+    requestUrl.pathname.endsWith('/app.js') ||
+    requestUrl.pathname.endsWith('/styles.css') ||
+    requestUrl.pathname.endsWith('/index.html') ||
+    requestUrl.pathname.endsWith('/manifest.webmanifest');
+
+  if (mustRefresh) {
+    event.respondWith(
+      fetch(request, { cache: 'no-store' }).then(response => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(request, copy)).catch(() => null);
+        return response;
+      }).catch(async () => await caches.match(request) || Response.error())
     );
     return;
   }

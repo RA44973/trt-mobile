@@ -30,6 +30,7 @@ let sessionToken = '';
 let currentUser = null;
 let authOffline = false;
 let appInitialized = false;
+let visitsSyncPromise = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -154,6 +155,12 @@ async function showApp() {
   }
 
   if (map) setTimeout(() => map.invalidateSize(), 80);
+
+  if (!authOffline && sessionToken) {
+    setTimeout(() => {
+      syncVisitsWithServer({silent:true});
+    }, 0);
+  }
 }
 
 async function handleLogin(event) {
@@ -252,8 +259,14 @@ async function handleLogout() {
 function bindAuthEvents() {
   $('login-form').addEventListener('submit', handleLogin);
   $('logout-button').addEventListener('click', handleLogout);
-  window.addEventListener('online', () => {
-    if (authOffline && sessionToken) restoreAuth();
+  window.addEventListener('online', async () => {
+    if (authOffline && sessionToken) {
+      await restoreAuth();
+      return;
+    }
+    if (sessionToken) {
+      syncVisitsWithServer({silent:false});
+    }
   });
 }
 
@@ -423,6 +436,14 @@ async function putItem(storeName, item) {
   await transactionComplete(tx);
 }
 
+async function putItems(storeName, items) {
+  if (!Array.isArray(items) || !items.length) return;
+  const tx = db.transaction(storeName, 'readwrite');
+  const store = tx.objectStore(storeName);
+  items.forEach(item => store.put(item));
+  await transactionComplete(tx);
+}
+
 async function deleteItem(storeName, id) {
   const tx = db.transaction(storeName, 'readwrite');
   tx.objectStore(storeName).delete(id);
@@ -459,6 +480,114 @@ async function replaceTrts(importedPoints) {
   prepared.forEach(item => store.put(item));
   await transactionComplete(tx);
 }
+
+
+function optionalFiniteNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function visitSyncPayload(visit) {
+  return {
+    id:String(visit.id || ''),
+    trtId:String(visit.trtId || ''),
+    createdAt:visit.createdAt || new Date().toISOString(),
+    result:String(visit.result || ''),
+    nextStep:String(visit.nextStep || ''),
+    comment:String(visit.comment || ''),
+    latitude:optionalFiniteNumber(visit.latitude),
+    longitude:optionalFiniteNumber(visit.longitude),
+    distanceKm:optionalFiniteNumber(visit.distanceKm)
+  };
+}
+
+async function syncVisitsWithServer({silent=true}={}) {
+  if (!sessionToken || authOffline || navigator.onLine === false) {
+    return {ok:false, offline:true, uploaded:0, downloaded:0};
+  }
+
+  if (visitsSyncPromise) return visitsSyncPromise;
+
+  visitsSyncPromise = (async () => {
+    const localVisits = await getAll(STORE_VISITS);
+    const pending = localVisits.filter(item => !item.serverSyncedAt);
+    const syncedIds = new Set();
+    const rejected = [];
+    const batchSize = 20;
+
+    for (let start = 0; start < pending.length; start += batchSize) {
+      const batch = pending.slice(start, start + batchSize);
+      const result = await apiRequest('/visits/sync', {
+        method:'POST',
+        timeout:20000,
+        body:{visits:batch.map(visitSyncPayload)}
+      });
+
+      (result.visit_ids || []).forEach(id => syncedIds.add(String(id)));
+      (result.rejected || []).forEach(item => rejected.push(item));
+    }
+
+    const syncedAt = new Date().toISOString();
+    if (syncedIds.size) {
+      const updatedLocal = localVisits
+        .filter(item => syncedIds.has(String(item.id)))
+        .map(item => ({...item, serverSyncedAt:syncedAt}));
+      await putItems(STORE_VISITS, updatedLocal);
+    }
+
+    const remoteResult = await apiRequest('/visits', {
+      method:'GET',
+      timeout:20000
+    });
+    const remoteVisits = Array.isArray(remoteResult.visits) ? remoteResult.visits : [];
+
+    if (remoteVisits.length) {
+      const currentLocal = await getAll(STORE_VISITS);
+      const localById = new Map(currentLocal.map(item => [String(item.id), item]));
+      const merged = remoteVisits.map(item => ({
+        ...(localById.get(String(item.id)) || {}),
+        ...item,
+        serverSyncedAt:syncedAt
+      }));
+      await putItems(STORE_VISITS, merged);
+    }
+
+    await refreshData();
+
+    if (!silent) {
+      if (rejected.length) {
+        showToast(`Синхронизировано визитов: ${syncedIds.size}. Ошибок: ${rejected.length}`);
+      } else {
+        showToast('Визиты синхронизированы');
+      }
+    }
+
+    return {
+      ok:true,
+      uploaded:syncedIds.size,
+      downloaded:remoteVisits.length,
+      rejected
+    };
+  })();
+
+  try {
+    return await visitsSyncPromise;
+  } catch (error) {
+    console.warn('Не удалось синхронизировать визиты', error);
+    if (!silent) {
+      showToast('Нет связи с сервером. Визиты сохранены на устройстве.');
+    }
+    return {
+      ok:false,
+      offline:Boolean(error.isNetworkError),
+      error
+    };
+  } finally {
+    visitsSyncPromise = null;
+  }
+}
+
 
 async function refreshData() {
   [trts, visits, tasks, mediaItems] = await Promise.all([
@@ -1068,7 +1197,13 @@ async function saveVisit() {
   closeModals();
   await refreshData();
   setDetailTab('visits');
-  showToast('Визит сохранён');
+  showToast('Визит сохранён на устройстве');
+
+  syncVisitsWithServer({silent:true}).then(result => {
+    if (result?.ok) {
+      showToast('Визит отправлен на сервер');
+    }
+  });
 }
 
 function openTaskModal() {
