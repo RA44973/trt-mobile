@@ -31,6 +31,7 @@ let currentUser = null;
 let authOffline = false;
 let appInitialized = false;
 let visitsSyncPromise = null;
+let saveVisitInProgress = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -430,6 +431,11 @@ async function getAll(storeName) {
   return requestToPromise(tx.objectStore(storeName).getAll());
 }
 
+async function getItem(storeName, id) {
+  const tx = db.transaction(storeName, 'readonly');
+  return requestToPromise(tx.objectStore(storeName).get(id));
+}
+
 async function putItem(storeName, item) {
   const tx = db.transaction(storeName, 'readwrite');
   tx.objectStore(storeName).put(item);
@@ -500,6 +506,41 @@ function visitSyncPayload(visit) {
     longitude:optionalFiniteNumber(visit.longitude),
     distanceKm:optionalFiniteNumber(visit.distanceKm)
   };
+}
+
+async function syncOneVisitWithServer(visitId, {notify=true}={}) {
+  if (!sessionToken || authOffline || navigator.onLine === false) {
+    if (notify) showToast('Визит сохранён. Он отправится на сервер после появления интернета.');
+    return {ok:false, offline:true};
+  }
+
+  const visit = await getItem(STORE_VISITS, visitId);
+  if (!visit) return {ok:false, missing:true};
+  if (visit.serverSyncedAt) return {ok:true, alreadySynced:true};
+
+  try {
+    const result = await apiRequest('/visits/sync', {
+      method:'POST',
+      timeout:20000,
+      body:{visits:[visitSyncPayload(visit)]}
+    });
+
+    const accepted = (result.visit_ids || []).map(String).includes(String(visitId));
+    if (!accepted) {
+      const rejected = Array.isArray(result.rejected) ? result.rejected : [];
+      const reason = rejected[0]?.error || 'Сервер не подтвердил сохранение визита.';
+      throw new Error(reason);
+    }
+
+    visit.serverSyncedAt = new Date().toISOString();
+    await putItem(STORE_VISITS, visit);
+    if (notify) showToast('Визит отправлен на сервер');
+    return {ok:true};
+  } catch (error) {
+    console.warn('Не удалось отправить визит на сервер', error);
+    if (notify) showToast('Визит сохранён на устройстве. Отправка на сервер повторится автоматически.');
+    return {ok:false, error, offline:Boolean(error.isNetworkError)};
+  }
 }
 
 async function syncVisitsWithServer({silent=true}={}) {
@@ -1127,8 +1168,21 @@ async function locateUser(openNearest=false) {
   }
 }
 
+function setVisitSaveBusy(isBusy) {
+  const button = $('save-visit-button');
+  if (!button) return;
+  if (!button.dataset.defaultText) button.dataset.defaultText = button.textContent || 'Сохранить визит';
+  button.disabled = Boolean(isBusy);
+  button.textContent = isBusy ? 'Сохраняем…' : button.dataset.defaultText;
+}
+
 function openVisitModal() {
   if (!selectedTrtId) return;
+  if (saveVisitInProgress) {
+    showToast('Предыдущий визит ещё сохраняется');
+    return;
+  }
+  setVisitSaveBusy(false);
   visitFiles = [];
   $('visit-result').value = 'Переговоры проведены';
   $('visit-next-step').value = '';
@@ -1165,9 +1219,42 @@ async function saveMediaFiles(files, trtId, visitId=null) {
   }
 }
 
+async function finishVisitSave(visit, trt, files, locationPromise) {
+  try {
+    const position = await locationPromise;
+    if (position) {
+      visit.latitude = position.lat;
+      visit.longitude = position.lon;
+      visit.accuracy = position.accuracy;
+      visit.distanceKm = haversineKm(position.lat, position.lon, trt.lat, trt.lon);
+      await putItem(STORE_VISITS, visit);
+    }
+
+    if (files.length) {
+      await saveMediaFiles(files, trt.id, visit.id);
+    }
+
+    await refreshData();
+    await syncOneVisitWithServer(visit.id, {notify:true});
+    await refreshData();
+  } catch (error) {
+    console.error('Ошибка фонового завершения визита', error);
+    showToast('Визит сохранён, но часть дополнительных данных обработать не удалось.');
+  }
+}
+
 async function saveVisit() {
+  if (saveVisitInProgress) return;
+
   const trt = selectedTrt();
   if (!trt) return;
+
+  saveVisitInProgress = true;
+  setVisitSaveBusy(true);
+
+  const files = [...visitFiles];
+  visitFiles = [];
+  const locationPromise = geolocate().catch(() => null);
 
   const visit = {
     id:uuid(),
@@ -1182,28 +1269,25 @@ async function saveVisit() {
     distanceKm:null
   };
 
+  // Закрываем окно сразу после первого нажатия. Повторное создание исключается блокировкой.
+  closeModals();
+
   try {
-    const position = await geolocate();
-    visit.latitude = position.lat;
-    visit.longitude = position.lon;
-    visit.accuracy = position.accuracy;
-    visit.distanceKm = haversineKm(position.lat, position.lon, trt.lat, trt.lon);
+    await putItem(STORE_VISITS, visit);
+    await refreshData();
+    setDetailTab('visits');
+    showToast('Визит сохранён на устройстве');
   } catch (error) {
-    // Визит всё равно сохраняется без координат.
+    console.error('Не удалось сохранить визит', error);
+    showToast('Не удалось сохранить визит на устройстве');
+    return;
+  } finally {
+    saveVisitInProgress = false;
+    setVisitSaveBusy(false);
   }
 
-  await putItem(STORE_VISITS, visit);
-  if (visitFiles.length) await saveMediaFiles(visitFiles, trt.id, visit.id);
-  closeModals();
-  await refreshData();
-  setDetailTab('visits');
-  showToast('Визит сохранён на устройстве');
-
-  syncVisitsWithServer({silent:true}).then(result => {
-    if (result?.ok) {
-      showToast('Визит отправлен на сервер');
-    }
-  });
+  // Координаты, файлы и серверная отправка завершаются после закрытия окна.
+  finishVisitSave(visit, trt, files, locationPromise);
 }
 
 function openTaskModal() {
