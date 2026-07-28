@@ -34,6 +34,9 @@ let visitsSyncPromise = null;
 let tasksSyncPromise = null;
 let saveVisitInProgress = false;
 let saveTaskInProgress = false;
+let selectedTaskId = null;
+let taskCompletionFiles = [];
+let completeTaskInProgress = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -646,14 +649,14 @@ function taskSyncPayload(task) {
     assigneeId:String(task.assigneeId || currentUser?.employee_id || ''),
     title:String(task.title || ''),
     description:String(task.description || ''),
+    completionComment:String(task.completionComment || ''),
     priority:String(task.priority || 'Средний'),
     status:String(task.status || 'open'),
     dueDate:String(task.dueDate || ''),
     completedAt:task.completedAt || null,
     createdAt:task.createdAt || new Date().toISOString(),
     updatedAt:task.updatedAt || task.createdAt || new Date().toISOString(),
-    version:taskVersion(task),
-    deletedAt:task.deletedAt || null
+    version:taskVersion(task)
   };
 }
 
@@ -710,7 +713,7 @@ async function syncTasksWithServer({silent=true}={}) {
 
   tasksSyncPromise = (async () => {
     const localTasks = await getAll(STORE_TASKS);
-    const pending = localTasks.filter(item => !item.serverSyncedAt || item.deletedAt);
+    const pending = localTasks.filter(item => !item.serverSyncedAt);
     const syncedIds = new Set();
     const deletedIds = new Set();
     const rejected = [];
@@ -962,6 +965,7 @@ function priorityClass(priority) {
 
 function taskCardHtml(task, showPoint=true) {
   const trt = trts.find(item => item.id === task.trtId);
+  const actionLabel = task.status === 'done' ? 'Открыть' : 'Выполнить';
   return `
     <article class="task-card ${task.status === 'done' ? 'status-done' : ''}" data-task-card="${escapeHtml(task.id)}">
       <div class="task-head">
@@ -976,60 +980,202 @@ function taskCardHtml(task, showPoint=true) {
       </div>
       ${task.description ? `<div class="task-description">${escapeHtml(task.description)}</div>` : ''}
       <div class="task-actions">
-        <button type="button" data-task-toggle="${escapeHtml(task.id)}">${task.status === 'done' ? 'Вернуть' : 'Выполнить'}</button>
+        <button type="button" data-task-details="${escapeHtml(task.id)}">${actionLabel}</button>
         ${trt ? `<button type="button" data-task-open-trt="${escapeHtml(trt.id)}">Открыть ТРТ</button>` : ''}
-        <button type="button" data-task-delete="${escapeHtml(task.id)}">Удалить</button>
       </div>
     </article>
   `;
 }
 
-function bindTaskActions(container) {
-  container.querySelectorAll('[data-task-toggle]').forEach(button => {
-    button.addEventListener('click', async () => {
-      if (button.disabled) return;
-      button.disabled = true;
+function ensureTaskDetailsUi() {
+  if ($('task-detail-modal')) return;
 
-      const task = tasks.find(item => item.id === button.dataset.taskToggle);
-      if (!task) return;
+  const style = document.createElement('style');
+  style.textContent = `
+    .task-detail-sheet{max-height:92vh;overflow:auto}
+    .task-detail-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}
+    .task-detail-box{background:#f7f8fa;border:1px solid #e4e7ec;border-radius:12px;padding:10px}
+    .task-detail-box span{display:block;color:#667085;font-size:11px;margin-bottom:4px}
+    .task-detail-box b{display:block;font-size:13px;overflow-wrap:anywhere}
+    .task-detail-description{white-space:pre-wrap;line-height:1.5;background:#f7f8fa;border-radius:12px;padding:12px;margin:10px 0 14px}
+    .task-completion-media{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+    .task-completion-media .media-card{min-height:110px}
+    .task-detail-done-note{padding:12px;border-radius:12px;background:#ecfdf3;color:#067647;white-space:pre-wrap;line-height:1.45}
+    @media (max-width:420px){.task-detail-summary{grid-template-columns:1fr}}
+  `;
+  document.head.appendChild(style);
 
-      const updatedTask = {
-        ...task,
-        status:task.status === 'done' ? 'open' : 'done',
-        completedAt:task.status === 'done' ? null : new Date().toISOString(),
-        version:taskVersion(task) + 1,
-        updatedAt:new Date().toISOString(),
-        serverSyncedAt:null
-      };
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="task-detail-modal" class="modal-backdrop">
+      <div class="modal-sheet task-detail-sheet">
+        <div class="modal-handle"></div>
+        <h2 id="task-detail-title" class="modal-title">Задача</h2>
+        <div id="task-detail-summary" class="task-detail-summary"></div>
+        <div class="field-group">
+          <label class="field-label">Описание</label>
+          <div id="task-detail-description" class="task-detail-description">—</div>
+        </div>
+        <div id="task-result-section">
+          <div class="field-group">
+            <label class="field-label" for="task-completion-comment">Комментарий *</label>
+            <textarea id="task-completion-comment" class="text-area" placeholder="Что сделано или почему задача потеряла актуальность"></textarea>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Фото и видео</label>
+            <div class="button-row">
+              <button id="task-completion-photo-button" class="secondary-button" type="button">Фото</button>
+              <button id="task-completion-video-button" class="secondary-button" type="button">Видео</button>
+            </div>
+            <input id="task-completion-photo-input" type="file" accept="image/*" capture="environment" multiple hidden>
+            <input id="task-completion-video-input" type="file" accept="video/*" capture="environment" multiple hidden>
+            <div id="task-completion-files-note" class="file-note">Файлы не выбраны</div>
+          </div>
+        </div>
+        <div id="task-completed-section" class="hidden">
+          <div class="field-group">
+            <label class="field-label">Результат</label>
+            <div id="task-completed-comment" class="task-detail-done-note"></div>
+          </div>
+        </div>
+        <div id="task-completion-media" class="task-completion-media"></div>
+        <div class="modal-actions">
+          <button id="task-detail-close-button" class="secondary-button" type="button">Закрыть</button>
+          <button id="complete-task-button" class="primary-button" type="button">Выполнить</button>
+        </div>
+      </div>
+    </div>
+  `);
 
-      await putItem(STORE_TASKS, updatedTask);
-      await refreshData();
-      syncOneTaskWithServer(updatedTask.id, {notify:true});
-    });
+  $('task-detail-close-button').addEventListener('click', closeTaskDetails);
+  $('task-detail-modal').addEventListener('click', event => {
+    if (event.target === $('task-detail-modal')) closeTaskDetails();
   });
+  $('task-completion-photo-button').addEventListener('click', () => $('task-completion-photo-input').click());
+  $('task-completion-video-button').addEventListener('click', () => $('task-completion-video-input').click());
+  $('task-completion-photo-input').addEventListener('change', event => {
+    taskCompletionFiles.push(...Array.from(event.target.files || []));
+    updateTaskCompletionFilesNote();
+  });
+  $('task-completion-video-input').addEventListener('change', event => {
+    taskCompletionFiles.push(...Array.from(event.target.files || []));
+    updateTaskCompletionFilesNote();
+  });
+  $('complete-task-button').addEventListener('click', completeSelectedTask);
+}
 
-  container.querySelectorAll('[data-task-delete]').forEach(button => {
-    button.addEventListener('click', async () => {
-      if (button.disabled) return;
-      if (!confirm('Удалить задачу?')) return;
-      button.disabled = true;
+function updateTaskCompletionFilesNote() {
+  const note = $('task-completion-files-note');
+  if (!note) return;
+  note.textContent = taskCompletionFiles.length
+    ? `Выбрано файлов: ${taskCompletionFiles.length}`
+    : 'Файлы не выбраны';
+}
 
-      const task = tasks.find(item => item.id === button.dataset.taskDelete);
-      if (!task) return;
+function renderTaskCompletionMedia(taskId) {
+  const container = $('task-completion-media');
+  if (!container) return;
+  container.innerHTML = '';
+  const rows = mediaItems.filter(item => String(item.taskId || '') === String(taskId || ''));
+  rows.forEach(item => {
+    const url = URL.createObjectURL(item.blob);
+    const card = document.createElement('div');
+    card.className = 'media-card';
+    card.innerHTML = item.type.startsWith('video/')
+      ? `<video src="${url}" controls preload="metadata"></video>`
+      : `<img src="${url}" alt="Материал к задаче">`;
+    container.appendChild(card);
+  });
+}
 
-      const tombstone = {
-        ...task,
-        deletedAt:new Date().toISOString(),
-        version:taskVersion(task) + 1,
-        updatedAt:new Date().toISOString(),
-        serverSyncedAt:null
-      };
+function openTaskDetails(taskId) {
+  ensureTaskDetailsUi();
+  const task = tasks.find(item => String(item.id) === String(taskId));
+  if (!task) return;
 
-      await putItem(STORE_TASKS, tombstone);
-      await refreshData();
-      showToast('Задача удалена с устройства');
-      syncOneTaskWithServer(tombstone.id, {notify:true});
-    });
+  selectedTaskId = task.id;
+  taskCompletionFiles = [];
+  updateTaskCompletionFilesNote();
+
+  const trt = trts.find(item => item.id === task.trtId);
+  $('task-detail-title').textContent = task.title || 'Задача';
+  $('task-detail-description').textContent = task.description || 'Описание не указано';
+  $('task-detail-summary').innerHTML = `
+    <div class="task-detail-box"><span>ТРТ</span><b>${escapeHtml(trt?.client || '—')}</b></div>
+    <div class="task-detail-box"><span>Исполнитель</span><b>${escapeHtml(task.assignee || currentUser?.full_name || '—')}</b></div>
+    <div class="task-detail-box"><span>Постановщик</span><b>${escapeHtml(task.createdBy || currentUser?.full_name || '—')}</b></div>
+    <div class="task-detail-box"><span>Срок</span><b>${escapeHtml(formatDate(task.dueDate))}</b></div>
+    <div class="task-detail-box"><span>Приоритет</span><b>${escapeHtml(task.priority || 'Средний')}</b></div>
+    <div class="task-detail-box"><span>Статус</span><b>${task.status === 'done' ? 'Выполнена' : 'Открыта'}</b></div>
+  `;
+
+  const isDone = task.status === 'done';
+  $('task-result-section').classList.toggle('hidden', isDone);
+  $('task-completed-section').classList.toggle('hidden', !isDone);
+  $('complete-task-button').classList.toggle('hidden', isDone);
+  $('task-completion-comment').value = '';
+  $('task-completed-comment').textContent = task.completionComment || 'Комментарий не указан — задача была закрыта до обновления.';
+  renderTaskCompletionMedia(task.id);
+  $('task-detail-modal').classList.add('open');
+}
+
+function closeTaskDetails() {
+  const modal = $('task-detail-modal');
+  if (modal) modal.classList.remove('open');
+  selectedTaskId = null;
+  taskCompletionFiles = [];
+  completeTaskInProgress = false;
+}
+
+async function completeSelectedTask() {
+  if (completeTaskInProgress) return;
+  const task = tasks.find(item => String(item.id) === String(selectedTaskId));
+  if (!task || task.status === 'done') return;
+
+  const comment = String($('task-completion-comment').value || '').trim();
+  if (!comment) {
+    showToast('Добавьте комментарий');
+    $('task-completion-comment').focus();
+    return;
+  }
+
+  completeTaskInProgress = true;
+  const button = $('complete-task-button');
+  button.disabled = true;
+  const files = taskCompletionFiles.slice();
+  const completedAt = new Date().toISOString();
+
+  $('task-detail-modal').classList.remove('open');
+
+  const updatedTask = {
+    ...task,
+    status:'done',
+    completionComment:comment,
+    completedAt,
+    version:taskVersion(task) + 1,
+    updatedAt:completedAt,
+    serverSyncedAt:null
+  };
+
+  try {
+    await putItem(STORE_TASKS, updatedTask);
+    if (files.length) await saveMediaFiles(files, task.trtId, null, task.id);
+    await refreshData();
+    showToast('Задача выполнена');
+    syncOneTaskWithServer(updatedTask.id, {notify:true});
+  } catch (error) {
+    console.error(error);
+    showToast('Не удалось выполнить задачу');
+  } finally {
+    selectedTaskId = null;
+    taskCompletionFiles = [];
+    completeTaskInProgress = false;
+    button.disabled = false;
+  }
+}
+
+function bindTaskActions(container) {
+  container.querySelectorAll('[data-task-details]').forEach(button => {
+    button.addEventListener('click', () => openTaskDetails(button.dataset.taskDetails));
   });
 
   container.querySelectorAll('[data-task-open-trt]').forEach(button => {
@@ -1422,7 +1568,7 @@ function updateVisitFilesNote() {
     : 'Файлы не выбраны';
 }
 
-async function saveMediaFiles(files, trtId, visitId=null) {
+async function saveMediaFiles(files, trtId, visitId=null, taskId=null) {
   const maxSize = 80 * 1024 * 1024;
   for (const file of files) {
     if (file.size > maxSize) {
@@ -1433,6 +1579,7 @@ async function saveMediaFiles(files, trtId, visitId=null) {
       id:uuid(),
       trtId,
       visitId,
+      taskId,
       name:file.name || 'файл',
       type:file.type || 'application/octet-stream',
       size:file.size,
