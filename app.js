@@ -14,6 +14,13 @@ const AUTH_TOKEN_KEY = 'trt-auth-token';
 const AUTH_USER_KEY = 'trt-auth-user';
 const AUTH_VERIFIED_AT_KEY = 'trt-auth-verified-at';
 const AUTH_OFFLINE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const TASK_TYPES = Object.freeze([
+  'Переместить внутри ТРТ',
+  'Расширить ассортимент',
+  'Провести ротацию',
+  'Подключить к VOG Club',
+  'Оформить БЗ'
+]);
 
 let db = null;
 let trts = [];
@@ -37,6 +44,7 @@ let saveVisitInProgress = false;
 let saveTaskInProgress = false;
 let selectedTaskId = null;
 let taskCompletionFiles = [];
+let taskCreationFiles = [];
 let completeTaskInProgress = false;
 
 const $ = (id) => document.getElementById(id);
@@ -821,6 +829,7 @@ function mediaUploadPayload(item) {
     trtId:String(item.trtId || ''),
     visitId:item.visitId == null ? '' : String(item.visitId),
     taskId:item.taskId == null ? '' : String(item.taskId),
+    purpose:String(item.purpose || ''),
     name:String(item.name || 'файл'),
     type:String(item.type || 'application/octet-stream'),
     size:Number(item.size || item.blob?.size || 0),
@@ -835,6 +844,10 @@ function normalizeRemoteMedia(item, local=null, syncedAt=null) {
     trtId:String(item.trtId || local?.trtId || ''),
     visitId:item.visitId || local?.visitId || null,
     taskId:item.taskId || local?.taskId || null,
+    purpose:item.purpose || local?.purpose || (
+      (item.taskId || local?.taskId) ? 'task_result' :
+      (item.visitId || local?.visitId) ? 'visit' : 'point'
+    ),
     employeeId:item.employeeId || local?.employeeId || '',
     objectKey:item.objectKey || local?.objectKey || '',
     name:item.name || local?.name || 'файл',
@@ -1155,8 +1168,8 @@ function ensureTaskDetailsUi() {
     .task-detail-box span{display:block;color:#667085;font-size:11px;margin-bottom:4px}
     .task-detail-box b{display:block;font-size:13px;overflow-wrap:anywhere}
     .task-detail-description{white-space:pre-wrap;line-height:1.5;background:#f7f8fa;border-radius:12px;padding:12px;margin:10px 0 14px}
-    .task-completion-media{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
-    .task-completion-media .media-card{min-height:110px}
+    .task-media-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+    .task-media-grid .media-card{min-height:110px}
     .task-detail-done-note{padding:12px;border-radius:12px;background:#ecfdf3;color:#067647;white-space:pre-wrap;line-height:1.45}
     @media (max-width:420px){.task-detail-summary{grid-template-columns:1fr}}
   `;
@@ -1171,6 +1184,10 @@ function ensureTaskDetailsUi() {
         <div class="field-group">
           <label class="field-label">Описание</label>
           <div id="task-detail-description" class="task-detail-description">—</div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Материалы задачи</label>
+          <div id="task-materials-media" class="task-media-grid"></div>
         </div>
         <div id="task-result-section">
           <div class="field-group">
@@ -1194,7 +1211,10 @@ function ensureTaskDetailsUi() {
             <div id="task-completed-comment" class="task-detail-done-note"></div>
           </div>
         </div>
-        <div id="task-completion-media" class="task-completion-media"></div>
+        <div class="field-group">
+          <label class="field-label">Фото и видео результата</label>
+          <div id="task-result-media" class="task-media-grid"></div>
+        </div>
         <div class="modal-actions">
           <button id="task-detail-close-button" class="secondary-button" type="button">Закрыть</button>
           <button id="complete-task-button" class="primary-button" type="button">Выполнить</button>
@@ -1235,11 +1255,16 @@ function mediaDisplayUrl(item) {
   return {url:String(item?.downloadUrl || ''), local:false};
 }
 
-function renderTaskCompletionMedia(taskId) {
-  const container = $('task-completion-media');
+function renderTaskMediaGrid(containerId, rows, emptyText) {
+  const container = $(containerId);
   if (!container) return;
   container.innerHTML = '';
-  const rows = mediaItems.filter(item => String(item.taskId || '') === String(taskId || ''));
+
+  if (!rows.length) {
+    container.innerHTML = `<div class="file-note">${escapeHtml(emptyText)}</div>`;
+    return;
+  }
+
   rows.forEach(item => {
     const display = mediaDisplayUrl(item);
     if (!display.url) return;
@@ -1250,6 +1275,15 @@ function renderTaskCompletionMedia(taskId) {
       : `<img src="${display.url}" alt="Материал к задаче">`;
     container.appendChild(card);
   });
+}
+
+function renderTaskMedia(taskId) {
+  const rows = mediaItems.filter(item => String(item.taskId || '') === String(taskId || ''));
+  const materials = rows.filter(item => item.purpose === 'task_material');
+  const results = rows.filter(item => item.purpose !== 'task_material');
+
+  renderTaskMediaGrid('task-materials-media', materials, 'Материалы не приложены');
+  renderTaskMediaGrid('task-result-media', results, 'Результат пока без файлов');
 }
 
 function openTaskDetails(taskId) {
@@ -1279,7 +1313,7 @@ function openTaskDetails(taskId) {
   $('complete-task-button').classList.toggle('hidden', isDone);
   $('task-completion-comment').value = '';
   $('task-completed-comment').textContent = task.completionComment || 'Комментарий не указан — задача была закрыта до обновления.';
-  renderTaskCompletionMedia(task.id);
+  renderTaskMedia(task.id);
   $('task-detail-modal').classList.add('open');
 }
 
@@ -1323,7 +1357,7 @@ async function completeSelectedTask() {
 
   try {
     await putItem(STORE_TASKS, updatedTask);
-    if (files.length) await saveMediaFiles(files, task.trtId, null, task.id);
+    if (files.length) await saveMediaFiles(files, task.trtId, null, task.id, 'task_result');
     await refreshData();
     showToast('Задача выполнена');
     (async () => {
@@ -1743,7 +1777,7 @@ function updateVisitFilesNote() {
     : 'Файлы не выбраны';
 }
 
-async function saveMediaFiles(files, trtId, visitId=null, taskId=null) {
+async function saveMediaFiles(files, trtId, visitId=null, taskId=null, purpose=null) {
   const maxSize = 80 * 1024 * 1024;
   for (const file of files) {
     if (file.size > maxSize) {
@@ -1755,6 +1789,7 @@ async function saveMediaFiles(files, trtId, visitId=null, taskId=null) {
       trtId,
       visitId,
       taskId,
+      purpose:purpose || (taskId ? 'task_result' : visitId ? 'visit' : 'point'),
       name:file.name || 'файл',
       type:file.type || 'application/octet-stream',
       size:file.size,
@@ -1780,7 +1815,7 @@ async function finishVisitSave(visit, trt, files, locationPromise) {
     }
 
     if (files.length) {
-      await saveMediaFiles(files, trt.id, visit.id);
+      await saveMediaFiles(files, trt.id, visit.id, null, 'visit');
     }
 
     await refreshData();
@@ -1842,6 +1877,63 @@ async function saveVisit() {
   finishVisitSave(visit, trt, files, locationPromise);
 }
 
+function ensureTaskCreationUi() {
+  const modal = $('task-modal');
+  const currentTitleField = $('task-title');
+  if (!modal || !currentTitleField) return;
+
+  if (currentTitleField.tagName !== 'SELECT') {
+    const select = document.createElement('select');
+    select.id = 'task-title';
+    select.className = currentTitleField.className;
+    select.innerHTML = [
+      '<option value="">Выберите задачу</option>',
+      ...TASK_TYPES.map(item => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`)
+    ].join('');
+    currentTitleField.replaceWith(select);
+
+    const group = select.closest('.field-group');
+    const label = group?.querySelector('.field-label');
+    if (label) label.textContent = 'Задача';
+  }
+
+  if (!$('task-create-media-group')) {
+    const actions = modal.querySelector('.modal-actions');
+    if (!actions) return;
+    actions.insertAdjacentHTML('beforebegin', `
+      <div id="task-create-media-group" class="field-group">
+        <label class="field-label">Материалы</label>
+        <div class="button-row">
+          <button id="task-create-photo-button" class="secondary-button" type="button">Фото</button>
+          <button id="task-create-video-button" class="secondary-button" type="button">Видео</button>
+        </div>
+        <input id="task-create-photo-input" type="file" accept="image/*" capture="environment" multiple hidden>
+        <input id="task-create-video-input" type="file" accept="video/*" capture="environment" multiple hidden>
+        <div id="task-create-files-note" class="file-note">Файлы не выбраны</div>
+      </div>
+    `);
+
+    $('task-create-photo-button').addEventListener('click', () => $('task-create-photo-input').click());
+    $('task-create-video-button').addEventListener('click', () => $('task-create-video-input').click());
+    $('task-create-photo-input').addEventListener('change', event => {
+      taskCreationFiles.push(...Array.from(event.target.files || []));
+      updateTaskCreationFilesNote();
+    });
+    $('task-create-video-input').addEventListener('change', event => {
+      taskCreationFiles.push(...Array.from(event.target.files || []));
+      updateTaskCreationFilesNote();
+    });
+  }
+}
+
+function updateTaskCreationFilesNote() {
+  const note = $('task-create-files-note');
+  if (!note) return;
+  note.textContent = taskCreationFiles.length
+    ? `Выбрано файлов: ${taskCreationFiles.length}`
+    : 'Файлы не выбраны';
+}
+
 function setTaskSaveBusy(isBusy) {
   const button = $('save-task-button');
   if (!button) return;
@@ -1852,13 +1944,18 @@ function setTaskSaveBusy(isBusy) {
 
 function openTaskModal() {
   if (!selectedTrtId) return;
+  ensureTaskCreationUi();
   if (saveTaskInProgress) {
     showToast('Предыдущая задача ещё сохраняется');
     return;
   }
 
   setTaskSaveBusy(false);
+  taskCreationFiles = [];
   $('task-title').value = '';
+  $('task-create-photo-input').value = '';
+  $('task-create-video-input').value = '';
+  updateTaskCreationFilesNote();
   $('task-assignee').value = currentUser?.full_name || '';
   $('task-assignee').disabled = true;
   $('task-due').value = '';
@@ -1871,8 +1968,14 @@ async function saveTask() {
   if (saveTaskInProgress) return;
 
   const title = $('task-title').value.trim();
-  if (!title) {
-    showToast('Введите название задачи');
+  if (!TASK_TYPES.includes(title)) {
+    showToast('Выберите задачу');
+    return;
+  }
+
+  const dueDate = $('task-due').value;
+  if (!dueDate) {
+    showToast('Укажите срок');
     return;
   }
 
@@ -1889,7 +1992,7 @@ async function saveTask() {
     assignee:currentUser?.full_name || '',
     assigneeId:currentUser?.employee_id || '',
     createdById:currentUser?.employee_id || '',
-    dueDate:$('task-due').value,
+    dueDate,
     priority:$('task-priority').value,
     description:$('task-description').value.trim(),
     status:'open',
@@ -1901,29 +2004,47 @@ async function saveTask() {
     serverSyncedAt:null
   };
 
+  const files = taskCreationFiles.slice();
+  taskCreationFiles = [];
   closeModals();
 
   try {
     await putItem(STORE_TASKS, task);
-    await refreshData();
-    setDetailTab('tasks');
-    showToast('Задача сохранена на устройстве');
   } catch (error) {
     console.error('Не удалось сохранить задачу', error);
     showToast('Не удалось сохранить задачу на устройстве');
-    return;
-  } finally {
     saveTaskInProgress = false;
     setTaskSaveBusy(false);
+    return;
   }
 
-  syncOneTaskWithServer(task.id, {notify:true});
+  if (files.length) {
+    try {
+      await saveMediaFiles(files, task.trtId, null, task.id, 'task_material');
+    } catch (error) {
+      console.error('Не удалось сохранить материалы задачи', error);
+      showToast('Задача сохранена, но материалы сохранить не удалось');
+    }
+  }
+
+  await refreshData();
+  setDetailTab('tasks');
+  showToast('Задача сохранена на устройстве');
+  saveTaskInProgress = false;
+  setTaskSaveBusy(false);
+
+  (async () => {
+    const taskSync = await syncOneTaskWithServer(task.id, {notify:true});
+    if (taskSync.ok && files.length) {
+      await syncMediaWithServer({silent:false});
+    }
+  })();
 }
 
 async function addStandaloneMedia(files) {
   if (!selectedTrtId || !files.length) return;
   try {
-    await saveMediaFiles(Array.from(files), selectedTrtId, null);
+    await saveMediaFiles(Array.from(files), selectedTrtId, null, null, 'point');
     await refreshData();
     setDetailTab('media');
     showToast('Материалы сохранены');
@@ -2013,6 +2134,8 @@ async function clearAllData() {
 }
 
 function bindEvents() {
+  ensureTaskCreationUi();
+
   document.querySelectorAll('.nav-button').forEach(button => {
     button.addEventListener('click', () => switchScreen(button.dataset.screen));
   });
