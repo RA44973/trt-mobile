@@ -43,6 +43,7 @@ let mediaSyncPromise = null;
 let saveVisitInProgress = false;
 let saveTaskInProgress = false;
 let selectedTaskId = null;
+let selectedTaskMode = 'view';
 let taskCompletionFiles = [];
 let taskCreationFiles = [];
 let completeTaskInProgress = false;
@@ -1133,9 +1134,21 @@ function priorityClass(priority) {
   return 'priority-medium';
 }
 
+function canCurrentUserCompleteTask(task) {
+  if (!task || task.status === 'done') return false;
+
+  const currentEmployeeId = String(currentUser?.employee_id || '').trim();
+  const assigneeId = String(task.assigneeId || '').trim();
+  if (currentEmployeeId && assigneeId) return currentEmployeeId === assigneeId;
+
+  const currentName = normalizeText(currentUser?.full_name || '');
+  const assigneeName = normalizeText(task.assignee || '');
+  return Boolean(currentName && assigneeName && currentName === assigneeName);
+}
+
 function taskCardHtml(task, showPoint=true) {
   const trt = trts.find(item => item.id === task.trtId);
-  const actionLabel = task.status === 'done' ? 'Открыть' : 'Выполнить';
+  const canComplete = canCurrentUserCompleteTask(task);
   return `
     <article class="task-card ${task.status === 'done' ? 'status-done' : ''}" data-task-card="${escapeHtml(task.id)}">
       <div class="task-head">
@@ -1150,7 +1163,8 @@ function taskCardHtml(task, showPoint=true) {
       </div>
       ${task.description ? `<div class="task-description">${escapeHtml(task.description)}</div>` : ''}
       <div class="task-actions">
-        <button type="button" data-task-details="${escapeHtml(task.id)}">${actionLabel}</button>
+        <button type="button" data-task-view="${escapeHtml(task.id)}">Просмотр</button>
+        ${canComplete ? `<button type="button" data-task-complete="${escapeHtml(task.id)}">Выполнить</button>` : ''}
         ${trt ? `<button type="button" data-task-open-trt="${escapeHtml(trt.id)}">Открыть ТРТ</button>` : ''}
       </div>
     </article>
@@ -1211,7 +1225,7 @@ function ensureTaskDetailsUi() {
             <div id="task-completed-comment" class="task-detail-done-note"></div>
           </div>
         </div>
-        <div class="field-group">
+        <div id="task-result-media-section" class="field-group">
           <label class="field-label">Фото и видео результата</label>
           <div id="task-result-media" class="task-media-grid"></div>
         </div>
@@ -1286,12 +1300,13 @@ function renderTaskMedia(taskId) {
   renderTaskMediaGrid('task-result-media', results, 'Результат пока без файлов');
 }
 
-function openTaskDetails(taskId) {
+function openTaskDetails(taskId, mode='view') {
   ensureTaskDetailsUi();
   const task = tasks.find(item => String(item.id) === String(taskId));
   if (!task) return;
 
   selectedTaskId = task.id;
+  selectedTaskMode = mode === 'complete' ? 'complete' : 'view';
   taskCompletionFiles = [];
   updateTaskCompletionFilesNote();
 
@@ -1308,9 +1323,17 @@ function openTaskDetails(taskId) {
   `;
 
   const isDone = task.status === 'done';
-  $('task-result-section').classList.toggle('hidden', isDone);
+  const completionMode = !isDone && selectedTaskMode === 'complete' && canCurrentUserCompleteTask(task);
+
+  if (selectedTaskMode === 'complete' && !isDone && !completionMode) {
+    selectedTaskMode = 'view';
+    showToast('Выполнить задачу может только исполнитель');
+  }
+
+  $('task-result-section').classList.toggle('hidden', !completionMode);
   $('task-completed-section').classList.toggle('hidden', !isDone);
-  $('complete-task-button').classList.toggle('hidden', isDone);
+  $('task-result-media-section').classList.toggle('hidden', !isDone && !completionMode);
+  $('complete-task-button').classList.toggle('hidden', !completionMode);
   $('task-completion-comment').value = '';
   $('task-completed-comment').textContent = task.completionComment || 'Комментарий не указан — задача была закрыта до обновления.';
   renderTaskMedia(task.id);
@@ -1321,6 +1344,7 @@ function closeTaskDetails() {
   const modal = $('task-detail-modal');
   if (modal) modal.classList.remove('open');
   selectedTaskId = null;
+  selectedTaskMode = 'view';
   taskCompletionFiles = [];
   completeTaskInProgress = false;
 }
@@ -1329,6 +1353,10 @@ async function completeSelectedTask() {
   if (completeTaskInProgress) return;
   const task = tasks.find(item => String(item.id) === String(selectedTaskId));
   if (!task || task.status === 'done') return;
+  if (!canCurrentUserCompleteTask(task)) {
+    showToast('Выполнить задачу может только исполнитель');
+    return;
+  }
 
   const comment = String($('task-completion-comment').value || '').trim();
   if (!comment) {
@@ -1378,8 +1406,12 @@ async function completeSelectedTask() {
 }
 
 function bindTaskActions(container) {
-  container.querySelectorAll('[data-task-details]').forEach(button => {
-    button.addEventListener('click', () => openTaskDetails(button.dataset.taskDetails));
+  container.querySelectorAll('[data-task-view]').forEach(button => {
+    button.addEventListener('click', () => openTaskDetails(button.dataset.taskView, 'view'));
+  });
+
+  container.querySelectorAll('[data-task-complete]').forEach(button => {
+    button.addEventListener('click', () => openTaskDetails(button.dataset.taskComplete, 'complete'));
   });
 
   container.querySelectorAll('[data-task-open-trt]').forEach(button => {
@@ -1429,6 +1461,140 @@ function renderAll() {
     renderMedia();
     renderPointTasks();
   }
+}
+
+function ensureTrtWorkspaceUi() {
+  if (document.body.dataset.trtWorkspaceUi === '1') return;
+
+  const actions = document.querySelector('#detail-overlay .detail-actions');
+  const tabs = document.querySelector('#detail-overlay .tabs');
+  const dataButton = $('open-sales-button');
+  const visitButton = $('start-visit-button');
+  const taskButton = $('new-task-button');
+  if (!actions || !tabs || !dataButton || !visitButton || !taskButton) return;
+
+  document.body.dataset.trtWorkspaceUi = '1';
+
+  const style = document.createElement('style');
+  style.id = 'trt-workspace-style';
+  style.textContent = `
+    .trt-work-actions{
+      display:grid!important;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px!important;
+      margin-top:12px;
+    }
+    .trt-work-actions button{
+      width:100%;
+      min-width:0;
+      min-height:44px;
+      padding:10px 5px!important;
+      font-size:14px!important;
+      font-weight:750!important;
+      white-space:nowrap;
+    }
+    .trt-archive-label{
+      margin:15px 4px 7px;
+      color:#98a2b3;
+      font-size:11px;
+      font-weight:650;
+      letter-spacing:.04em;
+    }
+    .trt-archive-tabs{
+      display:grid!important;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:7px!important;
+      overflow:visible!important;
+      padding:0!important;
+      margin:0 0 12px!important;
+      border:0!important;
+      background:transparent!important;
+    }
+    .trt-archive-tabs .tab-button{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      width:100%;
+      min-width:0;
+      min-height:44px;
+      padding:9px 3px!important;
+      border:1px solid #d0d5dd!important;
+      border-radius:11px!important;
+      background:#fff!important;
+      color:#344054!important;
+      font-size:13px!important;
+      font-weight:750!important;
+      line-height:1.15;
+      white-space:nowrap;
+      box-shadow:0 1px 2px rgba(16,24,40,.05);
+    }
+    .trt-archive-tabs .tab-button.active{
+      border-color:#176b4d!important;
+      background:#176b4d!important;
+      color:#fff!important;
+      box-shadow:0 2px 5px rgba(23,107,77,.18);
+    }
+    .trt-archive-tabs .trt-hidden-sales-tab{display:none!important}
+    .task-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:7px;
+    }
+    .task-actions button{
+      min-height:38px;
+      font-weight:700;
+    }
+    @media (max-width:360px){
+      .trt-work-actions button{font-size:13px!important}
+      .trt-archive-tabs .tab-button{font-size:12px!important}
+    }
+  `;
+  document.head.appendChild(style);
+
+  dataButton.textContent = 'Данные';
+  visitButton.textContent = 'Визит';
+  taskButton.textContent = 'Задача';
+  dataButton.setAttribute('aria-label', 'Открыть данные и продажи ТРТ');
+  visitButton.setAttribute('aria-label', 'Зафиксировать визит в ТРТ');
+  taskButton.setAttribute('aria-label', 'Поставить задачу по ТРТ');
+
+  actions.classList.add('trt-work-actions');
+  actions.append(dataButton, visitButton, taskButton);
+
+  let archiveLabel = $('trt-archive-label');
+  if (!archiveLabel) {
+    archiveLabel = document.createElement('div');
+    archiveLabel.id = 'trt-archive-label';
+    archiveLabel.className = 'trt-archive-label';
+    archiveLabel.textContent = 'Архив';
+    tabs.insertAdjacentElement('beforebegin', archiveLabel);
+  }
+
+  const infoTab = tabs.querySelector('[data-tab="info"]');
+  const salesTab = tabs.querySelector('[data-tab="sales"]');
+  const visitsTab = tabs.querySelector('[data-tab="visits"]');
+  const tasksTab = tabs.querySelector('[data-tab="tasks"]');
+  const mediaTab = tabs.querySelector('[data-tab="media"]');
+
+  if (infoTab) {
+    infoTab.textContent = 'Карточка';
+    infoTab.setAttribute('aria-label', 'Карточка ТРТ');
+  }
+  if (visitsTab) visitsTab.textContent = 'Визиты';
+  if (tasksTab) tasksTab.textContent = 'Задачи';
+  if (mediaTab) {
+    mediaTab.textContent = 'Фото';
+    mediaTab.setAttribute('aria-label', 'Фото и видео ТРТ');
+  }
+  if (salesTab) salesTab.classList.add('trt-hidden-sales-tab');
+
+  tabs.classList.add('trt-archive-tabs');
+  [infoTab, visitsTab, tasksTab, mediaTab, salesTab].forEach(tab => {
+    if (tab) tabs.appendChild(tab);
+  });
+
+  const version = document.querySelector('.topbar-title span');
+  if (version) version.textContent = 'v1.8';
 }
 
 function switchScreen(name) {
@@ -2135,6 +2301,7 @@ async function clearAllData() {
 
 function bindEvents() {
   ensureTaskCreationUi();
+  ensureTrtWorkspaceUi();
 
   document.querySelectorAll('.nav-button').forEach(button => {
     button.addEventListener('click', () => switchScreen(button.dataset.screen));
