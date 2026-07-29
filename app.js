@@ -32,6 +32,7 @@ let authOffline = false;
 let appInitialized = false;
 let visitsSyncPromise = null;
 let tasksSyncPromise = null;
+let mediaSyncPromise = null;
 let saveVisitInProgress = false;
 let saveTaskInProgress = false;
 let selectedTaskId = null;
@@ -813,19 +814,175 @@ async function syncTasksWithServer({silent=true}={}) {
   }
 }
 
+
+function mediaUploadPayload(item) {
+  return {
+    id:String(item.id || ''),
+    trtId:String(item.trtId || ''),
+    visitId:item.visitId == null ? '' : String(item.visitId),
+    taskId:item.taskId == null ? '' : String(item.taskId),
+    name:String(item.name || 'файл'),
+    type:String(item.type || 'application/octet-stream'),
+    size:Number(item.size || item.blob?.size || 0),
+    createdAt:item.createdAt || new Date().toISOString()
+  };
+}
+
+function normalizeRemoteMedia(item, local=null, syncedAt=null) {
+  return {
+    ...(local || {}),
+    id:String(item.id || local?.id || ''),
+    trtId:String(item.trtId || local?.trtId || ''),
+    visitId:item.visitId || local?.visitId || null,
+    taskId:item.taskId || local?.taskId || null,
+    employeeId:item.employeeId || local?.employeeId || '',
+    objectKey:item.objectKey || local?.objectKey || '',
+    name:item.name || local?.name || 'файл',
+    type:item.type || local?.type || 'application/octet-stream',
+    mediaKind:item.mediaKind || local?.mediaKind || '',
+    size:Number(item.size || local?.size || 0),
+    status:item.status || 'uploaded',
+    etag:item.etag || local?.etag || '',
+    createdAt:item.createdAt || local?.createdAt || new Date().toISOString(),
+    updatedAt:item.updatedAt || local?.updatedAt || null,
+    downloadUrl:item.downloadUrl || local?.downloadUrl || '',
+    downloadUrlReceivedAt:item.downloadUrl ? new Date().toISOString() : (local?.downloadUrlReceivedAt || null),
+    serverSyncedAt:syncedAt || local?.serverSyncedAt || new Date().toISOString()
+  };
+}
+
+async function uploadOneMediaItem(item, {notify=false}={}) {
+  if (!item?.id) return {ok:false, missing:true};
+  if (!item.blob) return {ok:false, noBlob:true};
+
+  const request = await apiRequest('/media/upload-url', {
+    method:'POST',
+    timeout:20000,
+    body:mediaUploadPayload(item)
+  });
+
+  if (request.already_uploaded && request.media) {
+    const updated = normalizeRemoteMedia(request.media, item, new Date().toISOString());
+    await putItem(STORE_MEDIA, updated);
+    if (notify) showToast('Файл уже был загружен');
+    return {ok:true, alreadyUploaded:true};
+  }
+
+  const uploadHeaders = request.headers || {'Content-Type':item.type};
+  const uploadResponse = await fetch(request.upload_url, {
+    method:'PUT',
+    headers:uploadHeaders,
+    body:item.blob
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error(`Object Storage не принял файл: ${uploadResponse.status}`);
+  }
+
+  const complete = await apiRequest('/media/complete', {
+    method:'POST',
+    timeout:20000,
+    body:{
+      mediaId:item.id,
+      etag:uploadResponse.headers.get('ETag') || ''
+    }
+  });
+
+  if (!complete.uploaded || !complete.media) {
+    throw new Error('Сервер не подтвердил загрузку файла.');
+  }
+
+  const updated = normalizeRemoteMedia(
+    complete.media,
+    item,
+    new Date().toISOString()
+  );
+  await putItem(STORE_MEDIA, updated);
+  if (notify) showToast('Файл загружен');
+  return {ok:true};
+}
+
+async function syncMediaWithServer({silent=true}={}) {
+  if (!sessionToken || authOffline || navigator.onLine === false) {
+    return {ok:false, offline:true, uploaded:0, downloaded:0};
+  }
+
+  if (mediaSyncPromise) return mediaSyncPromise;
+
+  mediaSyncPromise = (async () => {
+    const localItems = await getAll(STORE_MEDIA);
+    const pending = localItems.filter(item => item.blob && !item.serverSyncedAt);
+    let uploaded = 0;
+    const errors = [];
+
+    for (const item of pending) {
+      try {
+        const result = await uploadOneMediaItem(item, {notify:false});
+        if (result.ok) uploaded += 1;
+      } catch (error) {
+        console.warn('Не удалось загрузить медиафайл', item.id, error);
+        errors.push({id:item.id, error:error.message || String(error)});
+      }
+    }
+
+    const remoteResult = await apiRequest('/media', {
+      method:'GET',
+      timeout:30000
+    });
+    const remoteItems = Array.isArray(remoteResult.media) ? remoteResult.media : [];
+    const currentLocal = await getAll(STORE_MEDIA);
+    const localById = new Map(currentLocal.map(item => [String(item.id), item]));
+    const syncedAt = new Date().toISOString();
+    const merged = remoteItems.map(item => normalizeRemoteMedia(
+      item,
+      localById.get(String(item.id)) || null,
+      syncedAt
+    ));
+
+    if (merged.length) await putItems(STORE_MEDIA, merged);
+    await refreshData();
+
+    if (!silent) {
+      if (errors.length) {
+        showToast(`Загружено файлов: ${uploaded}. Ошибок: ${errors.length}`);
+      } else {
+        showToast('Фото и видео синхронизированы');
+      }
+    }
+
+    return {
+      ok:errors.length === 0,
+      uploaded,
+      downloaded:remoteItems.length,
+      errors
+    };
+  })();
+
+  try {
+    return await mediaSyncPromise;
+  } catch (error) {
+    console.warn('Не удалось синхронизировать фото и видео', error);
+    if (!silent) showToast('Фото и видео остались на устройстве. Отправка повторится автоматически.');
+    return {ok:false, offline:Boolean(error.isNetworkError), error};
+  } finally {
+    mediaSyncPromise = null;
+  }
+}
+
 async function syncAllWithServer({silent=true}={}) {
   const visitsResult = await syncVisitsWithServer({silent:true});
   const tasksResult = await syncTasksWithServer({silent:true});
+  const mediaResult = await syncMediaWithServer({silent:true});
 
   if (!silent) {
-    if (visitsResult.ok && tasksResult.ok) {
-      showToast('Визиты и задачи синхронизированы');
+    if (visitsResult.ok && tasksResult.ok && mediaResult.ok) {
+      showToast('Данные синхронизированы');
     } else {
       showToast('Часть данных осталась на устройстве. Синхронизация повторится автоматически.');
     }
   }
 
-  return {visits:visitsResult, tasks:tasksResult};
+  return {visits:visitsResult, tasks:tasksResult, media:mediaResult};
 }
 
 
@@ -1071,18 +1228,26 @@ function updateTaskCompletionFilesNote() {
     : 'Файлы не выбраны';
 }
 
+function mediaDisplayUrl(item) {
+  if (item?.blob) {
+    return {url:URL.createObjectURL(item.blob), local:true};
+  }
+  return {url:String(item?.downloadUrl || ''), local:false};
+}
+
 function renderTaskCompletionMedia(taskId) {
   const container = $('task-completion-media');
   if (!container) return;
   container.innerHTML = '';
   const rows = mediaItems.filter(item => String(item.taskId || '') === String(taskId || ''));
   rows.forEach(item => {
-    const url = URL.createObjectURL(item.blob);
+    const display = mediaDisplayUrl(item);
+    if (!display.url) return;
     const card = document.createElement('div');
     card.className = 'media-card';
     card.innerHTML = item.type.startsWith('video/')
-      ? `<video src="${url}" controls preload="metadata"></video>`
-      : `<img src="${url}" alt="Материал к задаче">`;
+      ? `<video src="${display.url}" controls preload="metadata"></video>`
+      : `<img src="${display.url}" alt="Материал к задаче">`;
     container.appendChild(card);
   });
 }
@@ -1161,7 +1326,12 @@ async function completeSelectedTask() {
     if (files.length) await saveMediaFiles(files, task.trtId, null, task.id);
     await refreshData();
     showToast('Задача выполнена');
-    syncOneTaskWithServer(updatedTask.id, {notify:true});
+    (async () => {
+      const taskSync = await syncOneTaskWithServer(updatedTask.id, {notify:true});
+      if (taskSync.ok && files.length) {
+        await syncMediaWithServer({silent:true});
+      }
+    })();
   } catch (error) {
     console.error(error);
     showToast('Не удалось выполнить задачу');
@@ -1458,23 +1628,28 @@ function renderMedia() {
   }
 
   rows.forEach(item => {
-    const url = URL.createObjectURL(item.blob);
+    const display = mediaDisplayUrl(item);
+    if (!display.url) return;
     const card = document.createElement('div');
     card.className = 'media-card';
     card.innerHTML = item.type.startsWith('video/')
-      ? `<video src="${url}" controls preload="metadata"></video>`
-      : `<img src="${url}" alt="Фото ТРТ">`;
-    const deleteButton = document.createElement('button');
-    deleteButton.type = 'button';
-    deleteButton.className = 'media-delete';
-    deleteButton.textContent = '×';
-    deleteButton.addEventListener('click', async () => {
-      if (!confirm('Удалить файл?')) return;
-      URL.revokeObjectURL(url);
-      await deleteItem(STORE_MEDIA, item.id);
-      await refreshData();
-    });
-    card.appendChild(deleteButton);
+      ? `<video src="${display.url}" controls preload="metadata"></video>`
+      : `<img src="${display.url}" alt="Фото ТРТ">`;
+
+    if (!item.serverSyncedAt) {
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'media-delete';
+      deleteButton.textContent = '×';
+      deleteButton.addEventListener('click', async () => {
+        if (!confirm('Удалить файл с устройства?')) return;
+        if (display.local) URL.revokeObjectURL(display.url);
+        await deleteItem(STORE_MEDIA, item.id);
+        await refreshData();
+      });
+      card.appendChild(deleteButton);
+    }
+
     grid.appendChild(card);
   });
 }
@@ -1584,6 +1759,10 @@ async function saveMediaFiles(files, trtId, visitId=null, taskId=null) {
       type:file.type || 'application/octet-stream',
       size:file.size,
       createdAt:new Date().toISOString(),
+      status:'local',
+      serverSyncedAt:null,
+      objectKey:'',
+      downloadUrl:'',
       blob:file
     });
   }
@@ -1605,7 +1784,10 @@ async function finishVisitSave(visit, trt, files, locationPromise) {
     }
 
     await refreshData();
-    await syncOneVisitWithServer(visit.id, {notify:true});
+    const visitSync = await syncOneVisitWithServer(visit.id, {notify:true});
+    if (visitSync.ok && files.length) {
+      await syncMediaWithServer({silent:true});
+    }
     await refreshData();
   } catch (error) {
     console.error('Ошибка фонового завершения визита', error);
@@ -1745,6 +1927,7 @@ async function addStandaloneMedia(files) {
     await refreshData();
     setDetailTab('media');
     showToast('Материалы сохранены');
+    syncMediaWithServer({silent:false});
   } catch (error) {
     console.error(error);
     showToast('Не удалось сохранить файл. Возможно, закончилась память браузера.');

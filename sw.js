@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trt-mobile-v1-11-task-card';
+const CACHE_NAME = 'trt-mobile-v1-12-media-sync';
 const SHELL = [
   './',
   './index.html',
