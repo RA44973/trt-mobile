@@ -818,7 +818,6 @@ function visitJournalPoint(visit) {
 function visitJournalCardHtml(visit) {
   const point = visitJournalPoint(visit);
   const assessment = normalizeFourPAssessment(visit?.fourP);
-  const editable = isVisitEditableToday(visit);
   return `
     <button class="visit-journal-card" type="button" data-visit-journal-id="${escapeHtml(visit.id)}">
       <div class="visit-journal-head">
@@ -826,7 +825,6 @@ function visitJournalCardHtml(visit) {
           <strong>${escapeHtml(point?.client || point?.holding || 'ТРТ')}</strong>
           <span>${escapeHtml(formatDateTime(visit.createdAt))}</span>
         </div>
-        <span class="visit-edit-state ${editable ? 'editable' : ''}">${editable ? 'Можно исправить' : 'Завершён'}</span>
       </div>
       <div class="visit-journal-result">${escapeHtml(visitResultSummary(visit))}</div>
       ${assessment?.complete ? `<div class="visit-journal-rating"><b>${fourPFormatScore(assessment.totalScore)}</b>${fourPStarsHtml(assessment.totalScore)}</div>` : ''}
@@ -868,14 +866,8 @@ function renderVisitJournal() {
 function openVisitFromJournal(visitId) {
   const visit = visits.find(item => String(item.id) === String(visitId));
   if (!visit) return;
-
-  if (!isVisitEditableToday(visit)) {
-    alert('Исправления невозможны. Создайте новый визит');
-    return;
-  }
-
   selectedTrtId = visit.trtId;
-  openVisitModal(String(visit.id));
+  openVisitModal(String(visit.id), {readOnly: !isVisitEditableToday(visit)});
 }
 
 function ensureVisitWorkflowUi() {
@@ -1095,6 +1087,7 @@ let visitOtherResult = '';
 let visitResultDraftSelection = new Set();
 let visitResultDraftOther = '';
 let visitVoiceRecognition = null;
+let visitReadOnlyMode = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -1196,6 +1189,7 @@ function updateAccountUi() {
 }
 
 function showLogin(message='') {
+  hideAuthBootstrap();
   $('auth-screen').classList.remove('hidden');
   document.querySelector('.app-shell').classList.add('hidden');
   $('offline-banner').classList.add('hidden');
@@ -1205,6 +1199,7 @@ function showLogin(message='') {
 }
 
 async function showApp() {
+  hideAuthBootstrap();
   $('auth-screen').classList.add('hidden');
   document.querySelector('.app-shell').classList.remove('hidden');
   updateAccountUi();
@@ -2137,23 +2132,20 @@ function pointOpenTasks(trtId) {
 }
 
 function trtItemHtml(trt) {
-  const visitsCount = pointVisitCount(trt.id);
-  const openTasks = pointOpenTasks(trt.id);
-  const salesMonths = matchingSalesMonths(trt);
-  const currentSales = hasSales(trt) ? salesSum(salesArray(trt, 2026), salesMonths) : null;
+  const ratingVisit = latestFourPVisitForTrt(trt.id);
+  const rating = normalizeFourPAssessment(ratingVisit?.fourP)?.totalScore;
   return `
-    <button class="trt-item" type="button" data-trt-id="${escapeHtml(trt.id)}">
+    <button class="trt-item trt-journal-card" type="button" data-trt-id="${escapeHtml(trt.id)}">
       <div class="trt-item-top">
         <div class="trt-item-name">${escapeHtml(trt.client || trt.holding || 'ТРТ')}</div>
         <span class="marker-dot" style="background:${colorForSize(trt.size)};flex:0 0 auto;"></span>
       </div>
       <div class="trt-item-address">${escapeHtml(trt.address || 'Адрес не указан')}</div>
-      <div class="trt-item-meta">
-        ${trt.manager ? `<span class="meta-chip">${escapeHtml(trt.manager)}</span>` : ''}
-        ${trt.format ? `<span class="meta-chip">${escapeHtml(trt.format)}</span>` : ''}
-        ${visitsCount ? `<span class="meta-chip">Визитов: ${visitsCount}</span>` : ''}
-        ${openTasks ? `<span class="meta-chip">Задач: ${openTasks}</span>` : ''}
-        ${currentSales != null ? `<span class="meta-chip sales-chip">2026: ${formatSales(currentSales, trt.unit)}</span>` : ''}
+      <div class="trt-journal-footer">
+        <div class="trt-journal-manager">${escapeHtml(shortPersonName(trt.manager) || 'Менеджер не указан')}</div>
+        <div class="trt-journal-rating" aria-label="Рейтинг ТРТ ${fourPFormatScore(rating)}">
+          <span>Рейтинг</span><b>${fourPFormatScore(rating)}</b><i>★</i>
+        </div>
       </div>
     </button>
   `;
@@ -2205,26 +2197,19 @@ function canCurrentUserCompleteTask(task) {
 
 function taskCardHtml(task, showPoint=true) {
   const trt = trts.find(item => item.id === task.trtId);
-  const canComplete = canCurrentUserCompleteTask(task);
+  const manager = shortPersonName(trt?.manager || task.assignee || '');
   return `
-    <article class="task-card ${task.status === 'done' ? 'status-done' : ''}" data-task-card="${escapeHtml(task.id)}">
-      <div class="task-head">
-        <div class="task-title">${escapeHtml(task.title)}</div>
-        <span class="meta-chip ${priorityClass(task.priority)}">${escapeHtml(task.priority || 'Средний')}</span>
+    <button class="task-card task-journal-card ${task.status === 'done' ? 'status-done' : ''}" type="button" data-task-open="${escapeHtml(task.id)}">
+      <div class="task-journal-head">
+        <div class="task-journal-point">${escapeHtml(trt?.client || trt?.holding || 'ТРТ')}</div>
+        <div class="task-journal-side">
+          <span class="meta-chip ${priorityClass(task.priority)}">${escapeHtml(task.priority || 'Средний')}</span>
+          <span class="task-journal-due ${isOverdue(task) ? 'overdue' : ''}">${escapeHtml(formatDate(task.dueDate))}</span>
+        </div>
       </div>
-      <div class="task-meta">
-        ${showPoint && trt ? `<span class="meta-chip">${escapeHtml(trt.client)}</span>` : ''}
-        ${task.assignee ? `<span class="meta-chip">${escapeHtml(task.assignee)}</span>` : ''}
-        <span class="meta-chip ${isOverdue(task) ? 'priority-high' : ''}">${escapeHtml(formatDate(task.dueDate))}</span>
-        <span class="meta-chip">${task.status === 'done' ? 'Выполнена' : 'Открыта'}</span>
-      </div>
-      ${task.description ? `<div class="task-description">${escapeHtml(task.description)}</div>` : ''}
-      <div class="task-actions">
-        <button type="button" data-task-view="${escapeHtml(task.id)}">Просмотр</button>
-        ${canComplete ? `<button type="button" data-task-complete="${escapeHtml(task.id)}">Выполнить</button>` : ''}
-        ${trt ? `<button type="button" data-task-open-trt="${escapeHtml(trt.id)}">Открыть ТРТ</button>` : ''}
-      </div>
-    </article>
+      <div class="task-journal-title">${escapeHtml(task.title || 'Задача')}</div>
+      <div class="task-journal-manager">${escapeHtml(manager || 'Менеджер не указан')}</div>
+    </button>
   `;
 }
 
@@ -2286,8 +2271,9 @@ function ensureTaskDetailsUi() {
           <label class="field-label">Фото и видео результата</label>
           <div id="task-result-media" class="task-media-grid"></div>
         </div>
-        <div class="modal-actions">
+        <div class="modal-actions task-detail-actions">
           <button id="task-detail-close-button" class="secondary-button" type="button">Закрыть</button>
+          <button id="task-detail-open-trt-button" class="secondary-button" type="button">Открыть ТРТ</button>
           <button id="complete-task-button" class="primary-button" type="button">Выполнить</button>
         </div>
       </div>
@@ -2295,6 +2281,12 @@ function ensureTaskDetailsUi() {
   `);
 
   $('task-detail-close-button').addEventListener('click', closeTaskDetails);
+  $('task-detail-open-trt-button').addEventListener('click', () => {
+    const task = tasks.find(item => String(item.id) === String(selectedTaskId));
+    if (!task?.trtId) return;
+    closeTaskDetails();
+    openTrt(task.trtId);
+  });
   $('task-detail-modal').addEventListener('click', event => {
     if (event.target === $('task-detail-modal')) closeTaskDetails();
   });
@@ -2380,6 +2372,8 @@ function openTaskDetails(taskId, mode='view') {
   `;
 
   const isDone = task.status === 'done';
+  const openTrtButton = $('task-detail-open-trt-button');
+  if (openTrtButton) openTrtButton.hidden = !trt;
   const completionMode = !isDone && selectedTaskMode === 'complete' && canCurrentUserCompleteTask(task);
 
   if (selectedTaskMode === 'complete' && !isDone && !completionMode) {
@@ -2463,16 +2457,12 @@ async function completeSelectedTask() {
 }
 
 function bindTaskActions(container) {
-  container.querySelectorAll('[data-task-view]').forEach(button => {
-    button.addEventListener('click', () => openTaskDetails(button.dataset.taskView, 'view'));
-  });
-
-  container.querySelectorAll('[data-task-complete]').forEach(button => {
-    button.addEventListener('click', () => openTaskDetails(button.dataset.taskComplete, 'complete'));
-  });
-
-  container.querySelectorAll('[data-task-open-trt]').forEach(button => {
-    button.addEventListener('click', () => openTrt(button.dataset.taskOpenTrt));
+  container.querySelectorAll('[data-task-open]').forEach(card => {
+    card.addEventListener('click', () => {
+      const task = tasks.find(item => String(item.id) === String(card.dataset.taskOpen));
+      const mode = task && canCurrentUserCompleteTask(task) ? 'complete' : 'view';
+      openTaskDetails(card.dataset.taskOpen, mode);
+    });
   });
 }
 
@@ -2718,7 +2708,7 @@ function ensureTrtWorkspaceUi() {
   ensureFourPTrtCardUi();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v2.3';
+  if (version) version.textContent = 'v2.4';
 }
 
 function switchScreen(name) {
@@ -3047,7 +3037,7 @@ function setVisitSaveBusy(isBusy) {
   button.textContent = isBusy ? 'Сохраняем…' : button.dataset.defaultText;
 }
 
-function openVisitModal(visitId=null) {
+function openVisitModal(visitId=null, options={}) {
   if (visitId && typeof visitId !== 'string') visitId = null;
   if (saveVisitInProgress) {
     showToast('Предыдущий визит ещё сохраняется');
@@ -3058,10 +3048,8 @@ function openVisitModal(visitId=null) {
     ? visits.find(item => String(item.id) === String(visitId))
     : null;
 
-  if (existing && !isVisitEditableToday(existing)) {
-    alert('Исправления невозможны. Создайте новый визит');
-    return;
-  }
+  const readOnly = Boolean(existing && (options.readOnly || !isVisitEditableToday(existing)));
+  visitReadOnlyMode = readOnly;
 
   if (existing) selectedTrtId = existing.trtId;
   if (!selectedTrtId) return;
@@ -3073,7 +3061,7 @@ function openVisitModal(visitId=null) {
   visitFiles = [];
 
   const title = $('visit-modal-title') || $('visit-modal')?.querySelector('.modal-title');
-  if (title) title.textContent = existing ? 'Редактирование визита' : 'Новый визит';
+  if (title) title.textContent = readOnly ? 'Просмотр визита' : (existing ? 'Редактирование визита' : 'Новый визит');
 
   const saveButton = $('save-visit-button');
   if (saveButton) {
@@ -3114,13 +3102,41 @@ function openVisitModal(visitId=null) {
     notice = document.createElement('div');
     notice.id = 'visit-edit-notice';
     notice.className = 'visit-edit-notice';
-    notice.textContent = 'Сегодняшний визит можно исправлять до конца текущего дня.';
     const firstGroup = $('visit-result-trigger')?.closest('.field-group');
     firstGroup?.insertAdjacentElement('beforebegin', notice);
   }
-  if (notice) notice.hidden = !existing;
+  if (notice) {
+    notice.hidden = !existing;
+    notice.textContent = readOnly
+      ? 'Исправления невозможны. Создайте новый визит'
+      : 'Сегодняшний визит можно исправлять до конца текущего дня.';
+    notice.classList.toggle('readonly', readOnly);
+  }
 
+  setVisitModalReadOnly(readOnly);
   openModal('visit-modal');
+}
+
+
+function setVisitModalReadOnly(readOnly) {
+  const modal = $('visit-modal');
+  if (!modal) return;
+
+  modal.classList.toggle('visit-readonly', Boolean(readOnly));
+  modal.querySelectorAll('input, textarea, select, button').forEach(element => {
+    if (!Object.prototype.hasOwnProperty.call(element.dataset, 'originalDisabled')) {
+      element.dataset.originalDisabled = element.disabled ? '1' : '0';
+    }
+    const isClose = element.classList.contains('modal-cancel');
+    element.disabled = readOnly ? !isClose : element.dataset.originalDisabled === '1';
+  });
+
+  ['save-visit-button','visit-photo-button','visit-video-button'].forEach(id => {
+    const element = $(id);
+    if (element) element.hidden = Boolean(readOnly);
+  });
+  const note = $('visit-files-note');
+  if (note) note.hidden = Boolean(readOnly);
 }
 
 function updateVisitFilesNote() {
@@ -3183,6 +3199,10 @@ async function finishVisitSave(visit, trt, files, locationPromise) {
 }
 
 async function saveVisit() {
+  if (visitReadOnlyMode) {
+    showToast('Исправления невозможны. Создайте новый визит');
+    return;
+  }
   if (saveVisitInProgress) return;
 
   const trt = selectedTrt();
@@ -3609,6 +3629,77 @@ function bindEvents() {
   $('clear-app-button').addEventListener('click', clearAllData);
 }
 
+
+function ensureJournalAndAuthUi() {
+  if (document.body.dataset.journalAuthUi === '1') return;
+  document.body.dataset.journalAuthUi = '1';
+
+  const style = document.createElement('style');
+  style.id = 'journal-auth-ui-style';
+  style.textContent = `
+    #auth-bootstrap-screen{position:fixed;inset:0;z-index:12000;background:#f5f7fa;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;color:#176b4d}
+    #auth-bootstrap-screen.hidden{display:none}
+    .auth-bootstrap-spinner{width:34px;height:34px;border:4px solid #d9eadf;border-top-color:#176b4d;border-radius:50%;animation:authBootstrapSpin .8s linear infinite}
+    .auth-bootstrap-title{font-size:16px;font-weight:850}
+    @keyframes authBootstrapSpin{to{transform:rotate(360deg)}}
+
+    .trt-journal-card{padding:15px!important;border-radius:16px!important}
+    .trt-journal-card .trt-item-name{font-size:17px!important;line-height:1.3!important;font-weight:850!important}
+    .trt-journal-card .trt-item-address{font-size:13px!important;line-height:1.4!important;margin-top:5px!important}
+    .trt-journal-footer{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:13px}
+    .trt-journal-manager{font-size:15px;font-weight:800;color:#344054;line-height:1.3}
+    .trt-journal-rating{margin-left:auto;display:flex;align-items:center;gap:5px;color:#775d00;white-space:nowrap}
+    .trt-journal-rating span{font-size:11px;color:#667085;font-weight:700}
+    .trt-journal-rating b{font-size:17px;font-weight:900}
+    .trt-journal-rating i{font-style:normal;font-size:18px;color:#f5b800}
+
+    .task-journal-card{display:block!important;width:100%!important;border:1px solid #e4e7ec!important;border-radius:16px!important;padding:15px!important;background:#fff!important;color:#17202a!important;text-align:left!important;box-shadow:0 1px 2px rgba(16,24,40,.05)!important}
+    .task-journal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+    .task-journal-point{font-size:17px;font-weight:850;line-height:1.3;min-width:0}
+    .task-journal-side{display:flex;flex-direction:column;align-items:flex-end;gap:7px;flex:0 0 auto}
+    .task-journal-side .meta-chip{font-size:11px!important}
+    .task-journal-due{font-size:13px;font-weight:800;color:#475467;white-space:nowrap}
+    .task-journal-due.overdue{color:#b42318}
+    .task-journal-title{margin-top:10px;font-size:15px;font-weight:800;line-height:1.35}
+    .task-journal-manager{margin-top:10px;font-size:14px;font-weight:750;color:#667085}
+    .task-detail-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important}
+    .task-detail-actions button{min-width:0!important;padding-left:6px!important;padding-right:6px!important}
+
+    .visit-journal-list{gap:12px!important}
+    .visit-journal-card{padding:15px!important;border-radius:16px!important}
+    .visit-journal-head strong{font-size:17px!important;line-height:1.3!important}
+    .visit-journal-head span{font-size:13px!important;margin-top:5px!important}
+    .visit-journal-result{font-size:15px!important;line-height:1.4!important;font-weight:800!important}
+    .visit-journal-comment{font-size:14px!important;line-height:1.45!important}
+    .visit-journal-rating b{font-size:16px!important}
+    .visit-journal-rating .fourp-star{font-size:16px!important}
+
+    #task-detail-modal,#visit-modal{display:flex!important;visibility:hidden;opacity:0;pointer-events:none;align-items:stretch!important;justify-content:flex-start!important;padding:0!important;background:rgba(15,23,42,.25)!important;transition:opacity .2s ease,visibility .2s ease}
+    #task-detail-modal.open,#visit-modal.open{visibility:visible;opacity:1;pointer-events:auto}
+    #task-detail-modal .modal-sheet,#visit-modal .modal-sheet{width:100vw!important;max-width:none!important;height:100dvh!important;max-height:none!important;margin:0!important;border-radius:0!important;overflow:auto!important;padding:calc(14px + env(safe-area-inset-top)) 16px calc(22px + env(safe-area-inset-bottom))!important;box-sizing:border-box!important;transform:translateX(100%);transition:transform .24s ease;box-shadow:none!important}
+    #task-detail-modal.open .modal-sheet,#visit-modal.open .modal-sheet{transform:translateX(0)}
+    #task-detail-modal .modal-handle,#visit-modal .modal-handle{display:none!important}
+    #task-detail-modal .modal-title,#visit-modal .modal-title{font-size:22px!important;padding-right:42px}
+    #visit-modal.visit-readonly textarea,#visit-modal.visit-readonly input,#visit-modal.visit-readonly select{background:#f5f7fa!important;color:#344054!important;opacity:1!important}
+    .visit-edit-notice.readonly{background:#fff1f0!important;color:#b42318!important}
+  `;
+  document.head.appendChild(style);
+
+  let bootstrap = $('auth-bootstrap-screen');
+  if (!bootstrap) {
+    bootstrap = document.createElement('div');
+    bootstrap.id = 'auth-bootstrap-screen';
+    bootstrap.innerHTML = '<div class="auth-bootstrap-spinner"></div><div class="auth-bootstrap-title">4Р для ТРТ</div>';
+    document.body.appendChild(bootstrap);
+  }
+  $('auth-screen')?.classList.add('hidden');
+  document.querySelector('.app-shell')?.classList.add('hidden');
+}
+
+function hideAuthBootstrap() {
+  $('auth-bootstrap-screen')?.classList.add('hidden');
+}
+
 async function registerServiceWorker() {
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     try {
@@ -3632,4 +3723,7 @@ async function init() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  ensureJournalAndAuthUi();
+  init();
+});
