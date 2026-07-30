@@ -23,8 +23,8 @@ const TASK_TYPES = Object.freeze([
 ]);
 
 
-const FOUR_P_VERSION = 1;
-const FOUR_P_PRICE_STATUS = 'Нет данных / не оценивается';
+const FOUR_P_VERSION = 2;
+const FOUR_P_COMMERCIAL_STATUS = 'Ожидает данных КУ';
 
 function fourPInteger(value) {
   if (value === null || value === undefined || value === '') return null;
@@ -63,6 +63,16 @@ function fourPVogShareScore(sharePercent) {
   return 5;
 }
 
+function fourPSellerMotivationScore(participationPercent) {
+  const value = fourPDecimal(participationPercent);
+  if (value == null || value < 0 || value > 100) return null;
+  if (value <= 0) return 1;
+  if (value <= 25) return 2;
+  if (value <= 50) return 3;
+  if (value <= 75) return 4;
+  return 5;
+}
+
 function fourPAverage(values) {
   const numbers = values.filter(value => Number.isFinite(Number(value))).map(Number);
   if (!numbers.length) return null;
@@ -74,40 +84,53 @@ function normalizeFourPAssessment(value) {
 
   const placeLocationScore = fourPScore(value.place?.locationScore);
   const placeVogPlacementScore = fourPScore(value.place?.vogPlacementScore);
+
   const skuCount = fourPInteger(value.product?.skuCount);
-  const vogSharePercent = fourPDecimal(value.product?.vogSharePercent);
+  const vogSkuCountRaw = fourPInteger(value.product?.vogSkuCount);
+  const legacyShare = fourPDecimal(value.product?.vogSharePercent);
+  const vogSkuCount = vogSkuCountRaw != null && vogSkuCountRaw >= 0 ? vogSkuCountRaw : null;
+  const vogSharePercent = skuCount != null && skuCount > 0 && vogSkuCount != null
+    ? Math.round((vogSkuCount / skuCount) * 1000) / 10
+    : (legacyShare != null && legacyShare >= 0 && legacyShare <= 100 ? Math.round(legacyShare * 10) / 10 : null);
   const assortmentScore = fourPAssortmentScore(skuCount);
   const vogShareScore = fourPVogShareScore(vogSharePercent);
-  const ownerIncentiveScore = fourPScore(value.promotion?.ownerIncentiveScore);
-  const sellerMotivationScore = fourPScore(value.promotion?.sellerMotivationScore);
+
+  const commercialTermsScore = fourPScore(
+    value.promotion?.commercialTermsScore ?? value.promotion?.ownerIncentiveScore
+  );
+  const sellerCount = fourPInteger(value.promotion?.sellerCount);
+  const vogClubParticipants = fourPInteger(value.promotion?.vogClubParticipants);
+  const sellerParticipationPercent = sellerCount != null && sellerCount > 0 && vogClubParticipants != null
+    ? Math.round((vogClubParticipants / sellerCount) * 1000) / 10
+    : null;
+  const sellerMotivationScore = sellerParticipationPercent != null
+    ? fourPSellerMotivationScore(sellerParticipationPercent)
+    : fourPScore(value.promotion?.sellerMotivationScore);
   const consumerPromoScore = fourPScore(value.promotion?.consumerPromoScore);
 
-  const complete = [
+  const userScoresComplete = [
     placeLocationScore,
     placeVogPlacementScore,
     assortmentScore,
     vogShareScore,
-    ownerIncentiveScore,
     sellerMotivationScore,
     consumerPromoScore,
   ].every(score => score != null);
 
-  const placeScore = complete
-    ? fourPAverage([placeLocationScore, placeVogPlacementScore])
-    : null;
-  const productScore = complete
-    ? fourPAverage([assortmentScore, vogShareScore])
-    : null;
-  const promotionScore = complete
-    ? fourPAverage([ownerIncentiveScore, sellerMotivationScore, consumerPromoScore])
-    : null;
-  const totalScore = complete
+  const placeScore = fourPAverage([placeLocationScore, placeVogPlacementScore]);
+  const productScore = fourPAverage([assortmentScore, vogShareScore]);
+  const promotionScore = fourPAverage([
+    commercialTermsScore,
+    sellerMotivationScore,
+    consumerPromoScore,
+  ]);
+  const totalScore = userScoresComplete
     ? fourPAverage([placeScore, productScore, promotionScore])
     : null;
 
   return {
     version: FOUR_P_VERSION,
-    complete,
+    complete: userScoresComplete,
     place: {
       locationScore: placeLocationScore,
       vogPlacementScore: placeVogPlacementScore,
@@ -116,229 +139,210 @@ function normalizeFourPAssessment(value) {
     product: {
       skuCount: skuCount != null && skuCount >= 0 ? skuCount : null,
       assortmentScore,
-      vogSharePercent: vogSharePercent != null && vogSharePercent >= 0 && vogSharePercent <= 100
-        ? Math.round(vogSharePercent * 10) / 10
-        : null,
+      vogSkuCount,
+      vogSharePercent,
       vogShareScore,
       outdatedSamples: Boolean(value.product?.outdatedSamples),
       score: productScore,
     },
     promotion: {
-      ownerIncentiveScore,
+      commercialTermsScore,
+      commercialTermsStatus: commercialTermsScore == null
+        ? FOUR_P_COMMERCIAL_STATUS
+        : 'Получено из системы',
+      sellerCount: sellerCount != null && sellerCount >= 0 ? sellerCount : null,
+      vogClubParticipants: vogClubParticipants != null && vogClubParticipants >= 0
+        ? vogClubParticipants
+        : null,
+      sellerParticipationPercent,
       sellerMotivationScore,
       consumerPromoScore,
       score: promotionScore,
     },
     price: {
-      status: FOUR_P_PRICE_STATUS,
+      status: 'Нет данных / не оценивается',
     },
-    comment: String(value.comment || '').trim().slice(0, 3000),
     totalScore,
     assessedAt: value.assessedAt || new Date().toISOString(),
   };
 }
 
-function fourPFormatScore(value) {
+function fourPFormatScore(value, empty='0,0') {
   const number = Number(value);
   return Number.isFinite(number)
     ? number.toFixed(1).replace('.', ',')
-    : '—';
+    : empty;
 }
 
-function fourPScoreOptions() {
+const FOUR_P_HELP = Object.freeze({
+  location: {
+    title: 'Местоположение ТРТ',
+    html: '<b>1</b> — удалённое помещение и низкий поток.<br><b>2</b> — слабая зона, вход сложно найти.<br><b>3</b> — обычное расположение со средним потоком.<br><b>4</b> — хорошая видимость и удобный доступ.<br><b>5</b> — первая линия, первый этаж, рядом со входом.'
+  },
+  placement: {
+    title: 'Местоположение ВОГ внутри ТРТ',
+    html: '<b>1</b> — товар разбросан в слабой зоне.<br><b>2</b> — малозаметная отдельная зона.<br><b>3</b> — стандартная выкладка.<br><b>4</b> — заметная зона с хорошей навигацией.<br><b>5</b> — входная или дизайнерская зона с максимальной видимостью.'
+  },
+  sku: {
+    title: 'Общее количество SKU в ТРТ',
+    html: 'Оценка выставляется автоматически в зависимости от размера ассортимента:<br><b>1</b> — менее 300;<br><b>2</b> — 300–799;<br><b>3</b> — 800–1499;<br><b>4</b> — 1500–2999;<br><b>5</b> — 3000 и более.'
+  },
+  share: {
+    title: 'Доля ВОГ в ассортименте',
+    html: 'Введите количество SKU ВОГ. Доля рассчитывается от общего количества SKU автоматически:<br><b>1</b> — до 5%;<br><b>2</b> — 6–10%;<br><b>3</b> — 11–19%;<br><b>4</b> — 20–29%;<br><b>5</b> — 30% и более.'
+  },
+  commercial: {
+    title: 'Коммерческие условия',
+    html: 'Оценка недоступна для ручного изменения. Она будет поступать из системы автоматически на основании коммерческих условий клиента.'
+  },
+  motivation: {
+    title: 'Мотивация продавцов',
+    html: 'Введите общее количество продавцов и количество участников VOG Club. Оценка рассчитывается автоматически по доле участников:<br><b>1</b> — 0%;<br><b>2</b> — 1–25%;<br><b>3</b> — 26–50%;<br><b>4</b> — 51–75%;<br><b>5</b> — 76–100%.'
+  },
+  display: {
+    title: 'Качество выставки ВОГ',
+    html: '<b>1</b> — выставка отсутствует или товар разрознен.<br><b>2</b> — минимальная выкладка без оформления.<br><b>3</b> — базовая аккуратная выставка.<br><b>4</b> — заметная и качественно оформленная зона.<br><b>5</b> — полноценная бренд-зона ВОГ.'
+  },
+});
+
+let fourPScoreTargetId = '';
+let fourPScoreHelpKey = '';
+
+function ensureFourPDialogs() {
+  if (!$('fourp-help-modal')) {
+    const helpModal = document.createElement('div');
+    helpModal.id = 'fourp-help-modal';
+    helpModal.className = 'modal-backdrop';
+    helpModal.innerHTML = `
+      <div class="modal-sheet fourp-dialog-sheet">
+        <div class="modal-grabber"></div>
+        <div class="fourp-dialog-head">
+          <h3 id="fourp-help-title">Подсказка</h3>
+          <button class="icon-button" type="button" data-fourp-close>×</button>
+        </div>
+        <div id="fourp-help-body" class="fourp-help-body"></div>
+        <button class="secondary-button" type="button" data-fourp-close>Понятно</button>
+      </div>`;
+    document.body.appendChild(helpModal);
+  }
+
+  if (!$('fourp-score-modal')) {
+    const scoreModal = document.createElement('div');
+    scoreModal.id = 'fourp-score-modal';
+    scoreModal.className = 'modal-backdrop';
+    scoreModal.innerHTML = `
+      <div class="modal-sheet fourp-dialog-sheet">
+        <div class="modal-grabber"></div>
+        <div class="fourp-dialog-head">
+          <h3 id="fourp-score-title">Выберите оценку</h3>
+          <button class="icon-button" type="button" data-fourp-close>×</button>
+        </div>
+        <div class="fourp-score-choice-grid">
+          ${[1,2,3,4,5].map(score => `<button type="button" data-fourp-score-value="${score}">${score}</button>`).join('')}
+        </div>
+        <div id="fourp-score-description" class="fourp-help-body"></div>
+      </div>`;
+    document.body.appendChild(scoreModal);
+  }
+
+  document.querySelectorAll('[data-fourp-close]').forEach(button => {
+    if (button.dataset.bound === '1') return;
+    button.dataset.bound = '1';
+    button.addEventListener('click', () => {
+      $('fourp-help-modal')?.classList.remove('open');
+      $('fourp-score-modal')?.classList.remove('open');
+    });
+  });
+
+  document.querySelectorAll('[data-fourp-score-value]').forEach(button => {
+    if (button.dataset.bound === '1') return;
+    button.dataset.bound = '1';
+    button.addEventListener('click', () => {
+      const target = $(fourPScoreTargetId);
+      if (target) target.value = button.dataset.fourpScoreValue;
+      $('fourp-score-modal')?.classList.remove('open');
+      updateFourPVisitPreview();
+    });
+  });
+}
+
+function openFourPHelp(helpKey) {
+  ensureFourPDialogs();
+  const help = FOUR_P_HELP[helpKey];
+  if (!help) return;
+  $('fourp-help-title').textContent = help.title;
+  $('fourp-help-body').innerHTML = help.html;
+  $('fourp-help-modal').classList.add('open');
+}
+
+function openFourPScorePicker(targetId, helpKey) {
+  ensureFourPDialogs();
+  fourPScoreTargetId = targetId;
+  fourPScoreHelpKey = helpKey;
+  const help = FOUR_P_HELP[helpKey];
+  $('fourp-score-title').textContent = help?.title || 'Выберите оценку';
+  $('fourp-score-description').innerHTML = help?.html || '';
+  $('fourp-score-modal').classList.add('open');
+}
+
+function fourPRowHtml({help, label, scoreId, inputHtml='', manualTarget=''}) {
+  const score = manualTarget
+    ? `<button id="${scoreId}" class="fourp-rating-button" type="button" data-fourp-manual-target="${manualTarget}" data-fourp-manual-help="${help}">0,0</button>`
+    : `<span id="${scoreId}" class="fourp-rating-pill auto" aria-disabled="true">0,0</span>`;
   return `
-    <option value="">Не оценено</option>
-    <option value="1">1 — очень низко</option>
-    <option value="2">2 — ниже среднего</option>
-    <option value="3">3 — средне</option>
-    <option value="4">4 — хорошо</option>
-    <option value="5">5 — отлично</option>`;
+    <div class="fourp-rating-row">
+      <button class="fourp-help-button" type="button" data-fourp-help="${help}" aria-label="Показать подсказку">?</button>
+      <div class="fourp-rating-main">
+        <div class="fourp-rating-label">${label}</div>
+        ${inputHtml}
+      </div>
+      ${score}
+    </div>`;
 }
 
 function ensureFourPVisitUi() {
   const modal = $('visit-modal');
   if (!modal || $('fourp-visit-section')) return;
 
-  const commentField = $('visit-comment')?.closest('.field-group');
   const mediaField = $('visit-photo-button')?.closest('.field-group');
-  if (!commentField || !mediaField) return;
+  if (!mediaField) return;
 
   const style = document.createElement('style');
   style.id = 'fourp-mobile-style';
   style.textContent = `
-    .fourp-section{
-      margin:14px 0;
-      padding:14px;
-      border:1px solid #d0d5dd;
-      border-radius:16px;
-      background:#f8fafc;
-    }
-    .fourp-section-title{
-      margin:0;
-      font-size:18px;
-      font-weight:850;
-      color:#17202a;
-    }
-    .fourp-section-subtitle{
-      margin:5px 0 12px;
-      color:#667085;
-      font-size:12px;
-      line-height:1.45;
-    }
-    .fourp-accordion{
-      margin-top:10px;
-      border:1px solid #e4e7ec;
-      border-radius:13px;
-      background:#fff;
-      overflow:hidden;
-    }
-    .fourp-accordion summary{
-      list-style:none;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      min-height:46px;
-      padding:0 12px;
-      cursor:pointer;
-      font-weight:800;
-    }
-    .fourp-accordion summary::-webkit-details-marker{display:none}
-    .fourp-accordion-body{
-      padding:0 12px 12px;
-      border-top:1px solid #eaecf0;
-    }
-    .fourp-field{
-      margin-top:12px;
-    }
-    .fourp-field label{
-      display:block;
-      margin-bottom:6px;
-      color:#344054;
-      font-size:13px;
-      font-weight:750;
-      line-height:1.35;
-    }
-    .fourp-hint{
-      margin-top:5px;
-      color:#667085;
-      font-size:11px;
-      line-height:1.4;
-    }
-    .fourp-inline-score{
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    .fourp-inline-score input{
-      flex:1;
-      min-width:0;
-    }
-    .fourp-score-pill{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-width:42px;
-      height:34px;
-      padding:0 9px;
-      border-radius:17px;
-      background:#e7f3ee;
-      color:#176b4d;
-      font-size:14px;
-      font-weight:850;
-    }
-    .fourp-checkbox{
-      display:flex!important;
-      align-items:flex-start;
-      gap:9px;
-      cursor:pointer;
-    }
-    .fourp-checkbox input{
-      width:18px;
-      height:18px;
-      margin:1px 0 0;
-      accent-color:#176b4d;
-      flex:0 0 auto;
-    }
-    .fourp-summary{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:7px;
-      margin-top:12px;
-    }
-    .fourp-summary-box{
-      min-width:0;
-      padding:9px 5px;
-      border-radius:11px;
-      background:#fff;
-      border:1px solid #e4e7ec;
-      text-align:center;
-    }
-    .fourp-summary-box span{
-      display:block;
-      color:#667085;
-      font-size:10px;
-      font-weight:700;
-    }
-    .fourp-summary-box b{
-      display:block;
-      margin-top:3px;
-      font-size:17px;
-      color:#17202a;
-    }
-    .fourp-summary-box.total{
-      background:#176b4d;
-      border-color:#176b4d;
-    }
-    .fourp-summary-box.total span,
-    .fourp-summary-box.total b{color:#fff}
-    .fourp-price-note{
-      margin-top:10px;
-      padding:9px 10px;
-      border-radius:10px;
-      background:#f2f4f7;
-      color:#667085;
-      font-size:12px;
-    }
-    .fourp-trt-card .card-title{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-    }
-    .fourp-trt-rating{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-width:52px;
-      height:34px;
-      border-radius:17px;
-      background:#176b4d;
-      color:#fff;
-      font-size:17px;
-      font-weight:850;
-    }
-    .fourp-detail-list{
-      margin-top:10px;
-      color:#475467;
-      font-size:12px;
-      line-height:1.5;
-    }
-    .fourp-timeline-rating{
-      display:inline-flex;
-      align-items:center;
-      gap:5px;
-      margin-top:7px;
-      padding:5px 8px;
-      border-radius:10px;
-      background:#e7f3ee;
-      color:#176b4d;
-      font-size:12px;
-      font-weight:800;
-    }
-    @media (max-width:360px){
-      .fourp-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
-    }
+    .fourp-section{margin:14px 0;padding:14px;border:1px solid #d7e2d5;border-radius:16px;background:#fff}
+    .fourp-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px}
+    .fourp-section-title{margin:0;font-size:19px;font-weight:850;color:#17202a}
+    .fourp-total-rating{display:inline-flex;align-items:center;justify-content:center;min-width:54px;height:36px;padding:0 10px;border-radius:9px;background:#cfe6bf;color:#31582b;font-size:18px;font-weight:900}
+    .fourp-rating-list{margin-top:6px}
+    .fourp-rating-row{display:grid;grid-template-columns:26px minmax(0,1fr) 54px;gap:9px;align-items:center;padding:12px 0;border-bottom:1px solid #eaecf0}
+    .fourp-rating-row:last-child{border-bottom:0}
+    .fourp-help-button{width:22px;height:22px;border:1px solid #89b76f;border-radius:50%;padding:0;background:#fff;color:#5b8d43;font-size:13px;font-weight:900;line-height:20px}
+    .fourp-rating-main{min-width:0}
+    .fourp-rating-label{color:#17202a;font-size:14px;font-weight:800;line-height:1.25}
+    .fourp-rating-note{margin-top:5px;color:#667085;font-size:11px;line-height:1.35}
+    .fourp-rating-pill,.fourp-rating-button{display:inline-flex;align-items:center;justify-content:center;width:54px;height:36px;border:0;border-radius:9px;background:#cfe6bf;color:#31582b;font-size:17px;font-weight:900}
+    .fourp-rating-button{cursor:pointer;box-shadow:inset 0 0 0 1px rgba(49,88,43,.1)}
+    .fourp-rating-pill.auto{opacity:.92}
+    .fourp-compact-input{width:100%;height:38px;margin-top:7px;border:1.5px solid #3d6e99;border-radius:8px;padding:0 10px;background:#fff;color:#17202a;font:inherit;box-sizing:border-box}
+    .fourp-double-input{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+    .fourp-input-caption{display:block;margin-bottom:4px;color:#667085;font-size:10px;font-weight:700;line-height:1.2}
+    .fourp-double-input .fourp-compact-input{margin-top:0}
+    .fourp-system-note{margin-top:6px;color:#667085;font-size:11px}
+    .fourp-dialog-sheet{padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+    .fourp-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+    .fourp-dialog-head h3{margin:0;font-size:19px;line-height:1.25}
+    .fourp-help-body{padding:12px;border-radius:12px;background:#f8fafc;color:#344054;font-size:14px;line-height:1.55}
+    .fourp-score-choice-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:8px 0 12px}
+    .fourp-score-choice-grid button{height:48px;border:1px solid #b8d4a8;border-radius:11px;background:#e7f3df;color:#31582b;font-size:20px;font-weight:900}
+    .fourp-trt-card .card-title{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .fourp-trt-rating{display:inline-flex;align-items:center;justify-content:center;min-width:54px;height:36px;border-radius:9px;background:#cfe6bf;color:#31582b;font-size:18px;font-weight:900}
+    .fourp-trt-list{margin-top:8px}
+    .fourp-trt-line{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #eaecf0;color:#475467;font-size:12px;line-height:1.35}
+    .fourp-trt-line:last-child{border-bottom:0}
+    .fourp-trt-line b{color:#17202a;text-align:right}
+    .fourp-timeline-rating{display:inline-flex;align-items:center;margin-top:7px;padding:5px 8px;border-radius:9px;background:#e7f3df;color:#31582b;font-size:12px;font-weight:850}
+    @media(max-width:360px){.fourp-rating-row{grid-template-columns:24px minmax(0,1fr) 50px}.fourp-rating-pill,.fourp-rating-button{width:50px}}
   `;
   document.head.appendChild(style);
 
@@ -346,99 +350,36 @@ function ensureFourPVisitUi() {
   section.id = 'fourp-visit-section';
   section.className = 'fourp-section';
   section.innerHTML = `
-    <h3 class="fourp-section-title">Оценка ТРТ по 4P</h3>
-    <p class="fourp-section-subtitle">Заполните оценку во время визита. Price на текущем этапе не оценивается.</p>
-
-    <details class="fourp-accordion" open>
-      <summary><span>Place · размещение</span><span id="fourp-place-head-score" class="fourp-score-pill">—</span></summary>
-      <div class="fourp-accordion-body">
-        <div class="fourp-field">
-          <label for="fourp-place-location">Привлекательность расположения ТРТ</label>
-          <select id="fourp-place-location" class="select-input">${fourPScoreOptions()}</select>
-          <div class="fourp-hint">1 — удалённая зона и слабый поток; 5 — первая линия, первый этаж, рядом со входом.</div>
-        </div>
-        <div class="fourp-field">
-          <label for="fourp-place-vog">Размещение товара ВОГ внутри ТРТ</label>
-          <select id="fourp-place-vog" class="select-input">${fourPScoreOptions()}</select>
-          <div class="fourp-hint">1 — товар разбросан в слабой зоне; 5 — входная или дизайнерская зона с максимальной видимостью.</div>
-        </div>
-      </div>
-    </details>
-
-    <details class="fourp-accordion" open>
-      <summary><span>Product · ассортимент</span><span id="fourp-product-head-score" class="fourp-score-pill">—</span></summary>
-      <div class="fourp-accordion-body">
-        <div class="fourp-field">
-          <label for="fourp-sku-count">Общее количество SKU в ТРТ</label>
-          <div class="fourp-inline-score">
-            <input id="fourp-sku-count" class="text-input" type="number" min="0" step="1" inputmode="numeric" placeholder="Например: 1200">
-            <span id="fourp-assortment-auto-score" class="fourp-score-pill">—</span>
-          </div>
-          <div class="fourp-hint">Автооценка: 1 — менее 300; 2 — 300–799; 3 — 800–1499; 4 — 1500–2999; 5 — 3000 и более.</div>
-        </div>
-        <div class="fourp-field">
-          <label for="fourp-vog-share">Доля ВОГ в ассортименте, %</label>
-          <div class="fourp-inline-score">
-            <input id="fourp-vog-share" class="text-input" type="number" min="0" max="100" step="0.1" inputmode="decimal" placeholder="Например: 18">
-            <span id="fourp-share-auto-score" class="fourp-score-pill">—</span>
-          </div>
-          <div class="fourp-hint">Автооценка: 1 — до 5%; 2 — 6–10%; 3 — 11–19%; 4 — 20–29%; 5 — 30% и более.</div>
-        </div>
-        <div class="fourp-field">
-          <label class="fourp-checkbox">
-            <input id="fourp-outdated-samples" type="checkbox">
-            <span>Есть устаревшие образцы, снятые с производства</span>
-          </label>
-        </div>
-      </div>
-    </details>
-
-    <details class="fourp-accordion" open>
-      <summary><span>Promotion · продвижение</span><span id="fourp-promotion-head-score" class="fourp-score-pill">—</span></summary>
-      <div class="fourp-accordion-body">
-        <div class="fourp-field">
-          <label for="fourp-owner-incentive">Мотивация владельца: скидка / маржа относительно РРЦ</label>
-          <select id="fourp-owner-incentive" class="select-input">${fourPScoreOptions()}</select>
-        </div>
-        <div class="fourp-field">
-          <label for="fourp-seller-motivation">Мотивация продавцов: участие в VOG Club</label>
-          <select id="fourp-seller-motivation" class="select-input">${fourPScoreOptions()}</select>
-        </div>
-        <div class="fourp-field">
-          <label for="fourp-consumer-promo">Продвижение для покупателя: качество бренд-зоны</label>
-          <select id="fourp-consumer-promo" class="select-input">${fourPScoreOptions()}</select>
-          <div class="fourp-hint">1 — бренд-зона отсутствует; 5 — полноценная оформленная бренд-зона.</div>
-        </div>
-      </div>
-    </details>
-
-    <div class="fourp-price-note"><b>Price:</b> ${FOUR_P_PRICE_STATUS}</div>
-
-    <div class="fourp-field">
-      <label for="fourp-comment">Комментарий к оценке 4P</label>
-      <textarea id="fourp-comment" class="text-area" placeholder="Ключевые наблюдения по размещению, ассортименту и продвижению"></textarea>
+    <div class="fourp-section-head">
+      <h3 class="fourp-section-title">Рейтинг ТРТ</h3>
+      <span id="fourp-total-score" class="fourp-total-rating">0,0</span>
     </div>
-
-    <div class="fourp-summary" aria-label="Итоговая оценка 4P">
-      <div class="fourp-summary-box"><span>Place</span><b id="fourp-place-score">—</b></div>
-      <div class="fourp-summary-box"><span>Product</span><b id="fourp-product-score">—</b></div>
-      <div class="fourp-summary-box"><span>Promotion</span><b id="fourp-promotion-score">—</b></div>
-      <div class="fourp-summary-box total"><span>Итог</span><b id="fourp-total-score">—</b></div>
+    <input id="fourp-place-location" type="hidden">
+    <input id="fourp-place-vog" type="hidden">
+    <input id="fourp-consumer-promo" type="hidden">
+    <div class="fourp-rating-list">
+      ${fourPRowHtml({help:'location',label:'Местоположение ТРТ',scoreId:'fourp-place-location-score',manualTarget:'fourp-place-location'})}
+      ${fourPRowHtml({help:'placement',label:'Местоположение ВОГ внутри ТРТ',scoreId:'fourp-place-vog-score',manualTarget:'fourp-place-vog'})}
+      ${fourPRowHtml({help:'sku',label:'Общее количество SKU в ТРТ',scoreId:'fourp-assortment-auto-score',inputHtml:'<input id="fourp-sku-count" class="fourp-compact-input" type="number" min="0" step="1" inputmode="numeric" placeholder="Например: 1200">'})}
+      ${fourPRowHtml({help:'share',label:'Доля ВОГ в ассортименте',scoreId:'fourp-share-auto-score',inputHtml:'<input id="fourp-vog-sku-count" class="fourp-compact-input" type="number" min="0" step="1" inputmode="numeric" placeholder="Количество SKU ВОГ, например: 200"><div id="fourp-share-percent-note" class="fourp-rating-note">Доля: 0%</div>'})}
+      ${fourPRowHtml({help:'commercial',label:'Коммерческие условия',scoreId:'fourp-commercial-score',inputHtml:'<div class="fourp-system-note">Оценка поступит из системы по КУ</div>'})}
+      ${fourPRowHtml({help:'motivation',label:'Мотивация',scoreId:'fourp-motivation-score',inputHtml:'<div class="fourp-double-input"><label><span class="fourp-input-caption">Всего продавцов</span><input id="fourp-seller-count" class="fourp-compact-input" type="number" min="0" step="1" inputmode="numeric" placeholder="5"></label><label><span class="fourp-input-caption">Участники VOG Club</span><input id="fourp-vog-club-count" class="fourp-compact-input" type="number" min="0" step="1" inputmode="numeric" placeholder="5"></label></div><div id="fourp-seller-percent-note" class="fourp-rating-note">Участие: 0%</div>'})}
+      ${fourPRowHtml({help:'display',label:'Качество выставки ВОГ',scoreId:'fourp-consumer-promo-score',manualTarget:'fourp-consumer-promo'})}
     </div>`;
 
   mediaField.insertAdjacentElement('beforebegin', section);
+  ensureFourPDialogs();
 
-  [
-    'fourp-place-location',
-    'fourp-place-vog',
-    'fourp-sku-count',
-    'fourp-vog-share',
-    'fourp-outdated-samples',
-    'fourp-owner-incentive',
-    'fourp-seller-motivation',
-    'fourp-consumer-promo',
-    'fourp-comment',
-  ].forEach(id => {
+  section.querySelectorAll('[data-fourp-help]').forEach(button => {
+    button.addEventListener('click', () => openFourPHelp(button.dataset.fourpHelp));
+  });
+  section.querySelectorAll('[data-fourp-manual-target]').forEach(button => {
+    button.addEventListener('click', () => openFourPScorePicker(
+      button.dataset.fourpManualTarget,
+      button.dataset.fourpManualHelp,
+    ));
+  });
+  ['fourp-sku-count','fourp-vog-sku-count','fourp-seller-count','fourp-vog-club-count'].forEach(id => {
     $(id)?.addEventListener('input', updateFourPVisitPreview);
     $(id)?.addEventListener('change', updateFourPVisitPreview);
   });
@@ -448,21 +389,21 @@ function ensureFourPVisitUi() {
 
 function fourPAssessmentFromForm() {
   return normalizeFourPAssessment({
+    version: FOUR_P_VERSION,
     place: {
       locationScore: $('fourp-place-location')?.value,
       vogPlacementScore: $('fourp-place-vog')?.value,
     },
     product: {
       skuCount: $('fourp-sku-count')?.value,
-      vogSharePercent: $('fourp-vog-share')?.value,
-      outdatedSamples: Boolean($('fourp-outdated-samples')?.checked),
+      vogSkuCount: $('fourp-vog-sku-count')?.value,
     },
     promotion: {
-      ownerIncentiveScore: $('fourp-owner-incentive')?.value,
-      sellerMotivationScore: $('fourp-seller-motivation')?.value,
+      commercialTermsScore: null,
+      sellerCount: $('fourp-seller-count')?.value,
+      vogClubParticipants: $('fourp-vog-club-count')?.value,
       consumerPromoScore: $('fourp-consumer-promo')?.value,
     },
-    comment: $('fourp-comment')?.value || '',
     assessedAt: new Date().toISOString(),
   });
 }
@@ -470,16 +411,16 @@ function fourPAssessmentFromForm() {
 function updateFourPVisitPreview() {
   if (!$('fourp-visit-section')) return;
   const assessment = fourPAssessmentFromForm();
-  const product = assessment?.product || {};
-  $('fourp-assortment-auto-score').textContent = product.assortmentScore ?? '—';
-  $('fourp-share-auto-score').textContent = product.vogShareScore ?? '—';
-  $('fourp-place-score').textContent = fourPFormatScore(assessment?.place?.score);
-  $('fourp-product-score').textContent = fourPFormatScore(assessment?.product?.score);
-  $('fourp-promotion-score').textContent = fourPFormatScore(assessment?.promotion?.score);
+  $('fourp-place-location-score').textContent = fourPFormatScore(assessment?.place?.locationScore);
+  $('fourp-place-vog-score').textContent = fourPFormatScore(assessment?.place?.vogPlacementScore);
+  $('fourp-assortment-auto-score').textContent = fourPFormatScore(assessment?.product?.assortmentScore);
+  $('fourp-share-auto-score').textContent = fourPFormatScore(assessment?.product?.vogShareScore);
+  $('fourp-commercial-score').textContent = fourPFormatScore(assessment?.promotion?.commercialTermsScore);
+  $('fourp-motivation-score').textContent = fourPFormatScore(assessment?.promotion?.sellerMotivationScore);
+  $('fourp-consumer-promo-score').textContent = fourPFormatScore(assessment?.promotion?.consumerPromoScore);
   $('fourp-total-score').textContent = fourPFormatScore(assessment?.totalScore);
-  $('fourp-place-head-score').textContent = fourPFormatScore(assessment?.place?.score);
-  $('fourp-product-head-score').textContent = fourPFormatScore(assessment?.product?.score);
-  $('fourp-promotion-head-score').textContent = fourPFormatScore(assessment?.promotion?.score);
+  $('fourp-share-percent-note').textContent = `Доля: ${assessment?.product?.vogSharePercent != null ? String(assessment.product.vogSharePercent).replace('.', ',') : '0'}%`;
+  $('fourp-seller-percent-note').textContent = `Участие: ${assessment?.promotion?.sellerParticipationPercent != null ? String(assessment.promotion.sellerParticipationPercent).replace('.', ',') : '0'}%`;
 }
 
 function resetFourPVisitForm() {
@@ -488,22 +429,44 @@ function resetFourPVisitForm() {
     'fourp-place-location',
     'fourp-place-vog',
     'fourp-sku-count',
-    'fourp-vog-share',
-    'fourp-owner-incentive',
-    'fourp-seller-motivation',
+    'fourp-vog-sku-count',
+    'fourp-seller-count',
+    'fourp-vog-club-count',
     'fourp-consumer-promo',
-    'fourp-comment',
-  ].forEach(id => {
-    if ($(id)) $(id).value = '';
-  });
-  if ($('fourp-outdated-samples')) $('fourp-outdated-samples').checked = false;
+  ].forEach(id => { if ($(id)) $(id).value = ''; });
   updateFourPVisitPreview();
 }
 
 function collectRequiredFourPAssessment() {
+  const skuCount = fourPInteger($('fourp-sku-count')?.value);
+  const vogSkuCount = fourPInteger($('fourp-vog-sku-count')?.value);
+  const sellerCount = fourPInteger($('fourp-seller-count')?.value);
+  const clubCount = fourPInteger($('fourp-vog-club-count')?.value);
+
+  if (!fourPScore($('fourp-place-location')?.value) || !fourPScore($('fourp-place-vog')?.value) || !fourPScore($('fourp-consumer-promo')?.value)) {
+    showToast('Поставьте три ручные оценки рейтинга ТРТ');
+    return null;
+  }
+  if (skuCount == null || skuCount <= 0) {
+    showToast('Укажите общее количество SKU в ТРТ');
+    return null;
+  }
+  if (vogSkuCount == null || vogSkuCount < 0 || vogSkuCount > skuCount) {
+    showToast('Количество SKU ВОГ должно быть от 0 до общего количества SKU');
+    return null;
+  }
+  if (sellerCount == null || sellerCount <= 0) {
+    showToast('Укажите общее количество продавцов');
+    return null;
+  }
+  if (clubCount == null || clubCount < 0 || clubCount > sellerCount) {
+    showToast('Участников VOG Club не может быть больше общего числа продавцов');
+    return null;
+  }
+
   const assessment = fourPAssessmentFromForm();
   if (!assessment?.complete) {
-    showToast('Заполните все показатели Place, Product и Promotion');
+    showToast('Проверьте заполнение рейтинга ТРТ');
     return null;
   }
   return assessment;
@@ -523,19 +486,10 @@ function ensureFourPTrtCardUi() {
   card.id = 'trt-fourp-mobile-card';
   card.className = 'card fourp-trt-card';
   card.innerHTML = `
-    <h3 class="card-title">
-      <span>Рейтинг ТРТ по 4P</span>
-      <span id="trt-fourp-total" class="fourp-trt-rating">—</span>
-    </h3>
-    <div id="trt-fourp-empty" class="file-note">Оценка ещё не выполнена. Заполните 4P во время визита.</div>
+    <h3 class="card-title"><span>Рейтинг ТРТ</span><span id="trt-fourp-total" class="fourp-trt-rating">0,0</span></h3>
+    <div id="trt-fourp-empty" class="file-note">Рейтинг ещё не заполнен. Внесите данные во время визита.</div>
     <div id="trt-fourp-content" hidden>
-      <div class="fourp-summary">
-        <div class="fourp-summary-box"><span>Place</span><b id="trt-fourp-place">—</b></div>
-        <div class="fourp-summary-box"><span>Product</span><b id="trt-fourp-product">—</b></div>
-        <div class="fourp-summary-box"><span>Promotion</span><b id="trt-fourp-promotion">—</b></div>
-        <div class="fourp-summary-box"><span>Price</span><b>—</b></div>
-      </div>
-      <div id="trt-fourp-details" class="fourp-detail-list"></div>
+      <div id="trt-fourp-details" class="fourp-trt-list"></div>
       <div id="trt-fourp-date" class="file-note"></div>
     </div>`;
   tab.prepend(card);
@@ -550,30 +504,26 @@ function renderFourPTrtCard() {
   $('trt-fourp-empty').hidden = hasAssessment;
   $('trt-fourp-content').hidden = !hasAssessment;
   $('trt-fourp-total').textContent = fourPFormatScore(assessment?.totalScore);
-
   if (!hasAssessment) return;
 
-  $('trt-fourp-place').textContent = fourPFormatScore(assessment.place.score);
-  $('trt-fourp-product').textContent = fourPFormatScore(assessment.product.score);
-  $('trt-fourp-promotion').textContent = fourPFormatScore(assessment.promotion.score);
+  const commercialText = assessment.promotion.commercialTermsScore == null
+    ? assessment.promotion.commercialTermsStatus
+    : fourPFormatScore(assessment.promotion.commercialTermsScore);
   $('trt-fourp-details').innerHTML = `
-    SKU: <b>${Number(assessment.product.skuCount).toLocaleString('ru-RU')}</b> ·
-    доля ВОГ: <b>${String(assessment.product.vogSharePercent).replace('.', ',')}%</b><br>
-    Устаревшие образцы: <b>${assessment.product.outdatedSamples ? 'есть' : 'нет'}</b> ·
-    Price: <b>${escapeHtml(assessment.price.status)}</b>
-    ${assessment.comment ? `<br>${escapeHtml(assessment.comment)}` : ''}`;
+    <div class="fourp-trt-line"><span>Местоположение ТРТ</span><b>${fourPFormatScore(assessment.place.locationScore)}</b></div>
+    <div class="fourp-trt-line"><span>Местоположение ВОГ внутри ТРТ</span><b>${fourPFormatScore(assessment.place.vogPlacementScore)}</b></div>
+    <div class="fourp-trt-line"><span>Ассортимент</span><b>${Number(assessment.product.skuCount).toLocaleString('ru-RU')} SKU · ${fourPFormatScore(assessment.product.assortmentScore)}</b></div>
+    <div class="fourp-trt-line"><span>Доля ВОГ</span><b>${assessment.product.vogSkuCount == null ? '—' : Number(assessment.product.vogSkuCount).toLocaleString('ru-RU')} SKU · ${String(assessment.product.vogSharePercent ?? 0).replace('.', ',')}% · ${fourPFormatScore(assessment.product.vogShareScore)}</b></div>
+    <div class="fourp-trt-line"><span>Коммерческие условия</span><b>${escapeHtml(commercialText)}</b></div>
+    <div class="fourp-trt-line"><span>Мотивация</span><b>${assessment.promotion.sellerCount == null ? fourPFormatScore(assessment.promotion.sellerMotivationScore) : `${assessment.promotion.vogClubParticipants ?? 0}/${assessment.promotion.sellerCount} · ${fourPFormatScore(assessment.promotion.sellerMotivationScore)}`}</b></div>
+    <div class="fourp-trt-line"><span>Качество выставки ВОГ</span><b>${fourPFormatScore(assessment.promotion.consumerPromoScore)}</b></div>`;
   $('trt-fourp-date').textContent = `Последняя оценка: ${formatDateTime(visit.createdAt)}`;
 }
 
 function fourPVisitTimelineHtml(visit) {
   const assessment = normalizeFourPAssessment(visit?.fourP);
   if (!assessment?.complete) return '';
-  return `<div class="fourp-timeline-rating">
-    4P: ${fourPFormatScore(assessment.totalScore)} ·
-    P ${fourPFormatScore(assessment.place.score)} /
-    ${fourPFormatScore(assessment.product.score)} /
-    ${fourPFormatScore(assessment.promotion.score)}
-  </div>`;
+  return `<div class="fourp-timeline-rating">Рейтинг ТРТ: ${fourPFormatScore(assessment.totalScore)}</div>`;
 }
 
 let db = null;
