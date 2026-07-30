@@ -22,6 +22,14 @@ const TASK_TYPES = Object.freeze([
   'Оформить БЗ'
 ]);
 
+const VISIT_RESULT_OPTIONS = Object.freeze([
+  'Переговоры проведены',
+  'Договорённость достигнута',
+  'Нужен повторный визит',
+  'Отказ',
+  'Точка закрыта'
+]);
+
 
 const FOUR_P_VERSION = 2;
 const FOUR_P_COMMERCIAL_STATUS = 'Ожидает данных КУ';
@@ -174,22 +182,31 @@ function fourPFormatScore(value, empty='0,0') {
     : empty;
 }
 
+function fourPStarsHtml(value, className='fourp-stars') {
+  const number = Math.max(0, Math.min(5, Number(value) || 0));
+  const stars = Array.from({length:5}, (_, index) => {
+    const fill = Math.max(0, Math.min(100, (number - index) * 100));
+    return `<span class="fourp-star" style="--fill:${fill}%">★</span>`;
+  }).join('');
+  return `<span class="${className}" aria-label="Рейтинг ${fourPFormatScore(number)} из 5">${stars}</span>`;
+}
+
 const FOUR_P_HELP = Object.freeze({
   location: {
     title: 'Местоположение ТРТ',
-    html: '<b>1</b> — удалённое помещение и низкий поток.<br><b>2</b> — слабая зона, вход сложно найти.<br><b>3</b> — обычное расположение со средним потоком.<br><b>4</b> — хорошая видимость и удобный доступ.<br><b>5</b> — первая линия, первый этаж, рядом со входом.'
+    html: '<b>5</b> — первая линия, первый этаж, рядом со входом.<br><b>4</b> — хорошая видимость и удобный доступ.<br><b>3</b> — обычное расположение со средним потоком.<br><b>2</b> — слабая зона, вход сложно найти.<br><b>1</b> — удалённое помещение и низкий поток.'
   },
   placement: {
     title: 'Местоположение ВОГ внутри ТРТ',
-    html: '<b>1</b> — товар разбросан в слабой зоне.<br><b>2</b> — малозаметная отдельная зона.<br><b>3</b> — стандартная выкладка.<br><b>4</b> — заметная зона с хорошей навигацией.<br><b>5</b> — входная или дизайнерская зона с максимальной видимостью.'
+    html: '<b>5</b> — входная или дизайнерская зона с максимальной видимостью.<br><b>4</b> — заметная зона с хорошей навигацией.<br><b>3</b> — стандартная выкладка.<br><b>2</b> — малозаметная отдельная зона.<br><b>1</b> — товар разбросан в слабой зоне.'
   },
   sku: {
     title: 'Общее количество SKU в ТРТ',
-    html: 'Оценка выставляется автоматически в зависимости от размера ассортимента:<br><b>1</b> — менее 300;<br><b>2</b> — 300–799;<br><b>3</b> — 800–1499;<br><b>4</b> — 1500–2999;<br><b>5</b> — 3000 и более.'
+    html: 'Оценка выставляется автоматически в зависимости от размера ассортимента:<br><b>5</b> — 3000 и более;<br><b>4</b> — 1500–2999;<br><b>3</b> — 800–1499;<br><b>2</b> — 300–799;<br><b>1</b> — менее 300.'
   },
   share: {
-    title: 'Доля ВОГ в ассортименте',
-    html: 'Введите количество SKU ВОГ. Доля рассчитывается от общего количества SKU автоматически:<br><b>1</b> — до 5%;<br><b>2</b> — 6–10%;<br><b>3</b> — 11–19%;<br><b>4</b> — 20–29%;<br><b>5</b> — 30% и более.'
+    title: 'SKU от ВОГ в ассортименте ТРТ',
+    html: 'Введите количество SKU от ВОГ. Доля рассчитывается от общего количества SKU автоматически:<br><b>5</b> — 30% и более;<br><b>4</b> — 20–29%;<br><b>3</b> — 11–19%;<br><b>2</b> — 6–10%;<br><b>1</b> — до 5%.'
   },
   commercial: {
     title: 'Коммерческие условия',
@@ -197,11 +214,11 @@ const FOUR_P_HELP = Object.freeze({
   },
   motivation: {
     title: 'Мотивация продавцов',
-    html: 'Введите общее количество продавцов и количество участников VOG Club. Оценка рассчитывается автоматически по доле участников:<br><b>1</b> — 0%;<br><b>2</b> — 1–25%;<br><b>3</b> — 26–50%;<br><b>4</b> — 51–75%;<br><b>5</b> — 76–100%.'
+    html: 'Введите общее количество продавцов и количество участников VOG Club. Оценка рассчитывается автоматически по доле участников:<br><b>5</b> — 76–100%;<br><b>4</b> — 51–75%;<br><b>3</b> — 26–50%;<br><b>2</b> — 1–25%;<br><b>1</b> — 0%.'
   },
   display: {
     title: 'Качество выставки ВОГ',
-    html: '<b>1</b> — выставка отсутствует или товар разрознен.<br><b>2</b> — минимальная выкладка без оформления.<br><b>3</b> — базовая аккуратная выставка.<br><b>4</b> — заметная и качественно оформленная зона.<br><b>5</b> — полноценная бренд-зона ВОГ.'
+    html: '<b>5</b> — полноценная бренд-зона ВОГ.<br><b>4</b> — заметная и качественно оформленная зона.<br><b>3</b> — базовая аккуратная выставка.<br><b>2</b> — минимальная выкладка без оформления.<br><b>1</b> — выставка отсутствует или товар разрознен.'
   },
 });
 
@@ -238,7 +255,7 @@ function ensureFourPDialogs() {
           <button class="icon-button" type="button" data-fourp-close>×</button>
         </div>
         <div class="fourp-score-choice-grid">
-          ${[1,2,3,4,5].map(score => `<button type="button" data-fourp-score-value="${score}">${score}</button>`).join('')}
+          ${[5,4,3,2,1].map(score => `<button type="button" data-fourp-score-value="${score}">${score}</button>`).join('')}
         </div>
         <div id="fourp-score-description" class="fourp-help-body"></div>
       </div>`;
@@ -289,14 +306,28 @@ function fourPRowHtml({help, label, scoreId, inputHtml='', manualTarget=''}) {
   const score = manualTarget
     ? `<button id="${scoreId}" class="fourp-rating-button" type="button" data-fourp-manual-target="${manualTarget}" data-fourp-manual-help="${help}">0,0</button>`
     : `<span id="${scoreId}" class="fourp-rating-pill auto" aria-disabled="true">0,0</span>`;
+
+  if (inputHtml) {
+    return `
+      <div class="fourp-rating-row has-input">
+        <div class="fourp-rating-label-line">
+          <button class="fourp-help-button" type="button" data-fourp-help="${help}" aria-label="Показать подсказку">?</button>
+          <div class="fourp-rating-label">${label}</div>
+        </div>
+        <div class="fourp-rating-control-line">
+          <div class="fourp-rating-input-area">${inputHtml}</div>
+          ${score}
+        </div>
+      </div>`;
+  }
+
   return `
     <div class="fourp-rating-row">
-      <button class="fourp-help-button" type="button" data-fourp-help="${help}" aria-label="Показать подсказку">?</button>
-      <div class="fourp-rating-main">
+      <div class="fourp-rating-label-line">
+        <button class="fourp-help-button" type="button" data-fourp-help="${help}" aria-label="Показать подсказку">?</button>
         <div class="fourp-rating-label">${label}</div>
-        ${inputHtml}
+        ${score}
       </div>
-      ${score}
     </div>`;
 }
 
@@ -307,44 +338,61 @@ function ensureFourPVisitUi() {
   const mediaField = $('visit-photo-button')?.closest('.field-group');
   if (!mediaField) return;
 
-  const style = document.createElement('style');
-  style.id = 'fourp-mobile-style';
-  style.textContent = `
-    .fourp-section{margin:14px 0;padding:14px;border:1px solid #d7e2d5;border-radius:16px;background:#fff}
-    .fourp-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px}
-    .fourp-section-title{margin:0;font-size:19px;font-weight:850;color:#17202a}
-    .fourp-total-rating{display:inline-flex;align-items:center;justify-content:center;min-width:54px;height:36px;padding:0 10px;border-radius:9px;background:#cfe6bf;color:#31582b;font-size:18px;font-weight:900}
-    .fourp-rating-list{margin-top:6px}
-    .fourp-rating-row{display:grid;grid-template-columns:26px minmax(0,1fr) 54px;gap:9px;align-items:center;padding:12px 0;border-bottom:1px solid #eaecf0}
-    .fourp-rating-row:last-child{border-bottom:0}
-    .fourp-help-button{width:22px;height:22px;border:1px solid #89b76f;border-radius:50%;padding:0;background:#fff;color:#5b8d43;font-size:13px;font-weight:900;line-height:20px}
-    .fourp-rating-main{min-width:0}
-    .fourp-rating-label{color:#17202a;font-size:14px;font-weight:800;line-height:1.25}
-    .fourp-rating-note{margin-top:5px;color:#667085;font-size:11px;line-height:1.35}
-    .fourp-rating-pill,.fourp-rating-button{display:inline-flex;align-items:center;justify-content:center;width:54px;height:36px;border:0;border-radius:9px;background:#cfe6bf;color:#31582b;font-size:17px;font-weight:900}
-    .fourp-rating-button{cursor:pointer;box-shadow:inset 0 0 0 1px rgba(49,88,43,.1)}
-    .fourp-rating-pill.auto{opacity:.92}
-    .fourp-compact-input{width:100%;height:38px;margin-top:7px;border:1.5px solid #3d6e99;border-radius:8px;padding:0 10px;background:#fff;color:#17202a;font:inherit;box-sizing:border-box}
-    .fourp-double-input{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
-    .fourp-input-caption{display:block;margin-bottom:4px;color:#667085;font-size:10px;font-weight:700;line-height:1.2}
-    .fourp-double-input .fourp-compact-input{margin-top:0}
-    .fourp-system-note{margin-top:6px;color:#667085;font-size:11px}
-    .fourp-dialog-sheet{padding-bottom:calc(18px + env(safe-area-inset-bottom))}
-    .fourp-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
-    .fourp-dialog-head h3{margin:0;font-size:19px;line-height:1.25}
-    .fourp-help-body{padding:12px;border-radius:12px;background:#f8fafc;color:#344054;font-size:14px;line-height:1.55}
-    .fourp-score-choice-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:8px 0 12px}
-    .fourp-score-choice-grid button{height:48px;border:1px solid #b8d4a8;border-radius:11px;background:#e7f3df;color:#31582b;font-size:20px;font-weight:900}
-    .fourp-trt-card .card-title{display:flex;align-items:center;justify-content:space-between;gap:10px}
-    .fourp-trt-rating{display:inline-flex;align-items:center;justify-content:center;min-width:54px;height:36px;border-radius:9px;background:#cfe6bf;color:#31582b;font-size:18px;font-weight:900}
-    .fourp-trt-list{margin-top:8px}
-    .fourp-trt-line{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #eaecf0;color:#475467;font-size:12px;line-height:1.35}
-    .fourp-trt-line:last-child{border-bottom:0}
-    .fourp-trt-line b{color:#17202a;text-align:right}
-    .fourp-timeline-rating{display:inline-flex;align-items:center;margin-top:7px;padding:5px 8px;border-radius:9px;background:#e7f3df;color:#31582b;font-size:12px;font-weight:850}
-    @media(max-width:360px){.fourp-rating-row{grid-template-columns:24px minmax(0,1fr) 50px}.fourp-rating-pill,.fourp-rating-button{width:50px}}
-  `;
-  document.head.appendChild(style);
+  if (!$('fourp-mobile-style')) {
+    const style = document.createElement('style');
+    style.id = 'fourp-mobile-style';
+    style.textContent = `
+      .fourp-section{margin:14px 0;padding:14px;border:1px solid #d7e2d5;border-radius:16px;background:#fff}
+      .fourp-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+      .fourp-section-title{margin:0;font-size:19px;font-weight:850;color:#17202a}
+      .fourp-total-display{display:flex;align-items:center;gap:8px;white-space:nowrap}
+      .fourp-total-value{font-size:19px;font-weight:900;color:#17202a}
+      .fourp-stars{display:inline-flex;gap:1px}
+      .fourp-star{position:relative;display:inline-block;color:#d0d5dd;font-size:20px;line-height:1}
+      .fourp-star::after{content:'★';position:absolute;inset:0;color:#f5b800;clip-path:inset(0 calc(100% - var(--fill)) 0 0)}
+      .fourp-rating-list{margin-top:6px}
+      .fourp-rating-row{padding:12px 0;border-bottom:1px solid #eaecf0}
+      .fourp-rating-row:last-child{border-bottom:0}
+      .fourp-rating-label-line{display:grid;grid-template-columns:26px minmax(0,1fr) 60px;gap:9px;align-items:center}
+      .fourp-rating-row.has-input .fourp-rating-label-line{grid-template-columns:26px minmax(0,1fr)}
+      .fourp-rating-control-line{display:grid;grid-template-columns:minmax(0,1fr) 60px;gap:9px;align-items:start;margin-left:35px;margin-top:8px}
+      .fourp-help-button{width:24px;height:24px;border:1px solid #89b76f;border-radius:50%;padding:0;background:#fff;color:#5b8d43;font-size:13px;font-weight:900;line-height:22px}
+      .fourp-rating-label{color:#17202a;font-size:14px;font-weight:800;line-height:1.25}
+      .fourp-rating-input-area{min-width:0}
+      .fourp-rating-note{margin-top:5px;color:#667085;font-size:11px;line-height:1.35}
+      .fourp-rating-pill,.fourp-rating-button{display:inline-flex;align-items:center;justify-content:center;width:60px;height:40px;border:0;border-radius:10px;background:#cfe6bf;color:#31582b;font-size:19px;font-weight:900}
+      .fourp-rating-button{cursor:pointer;box-shadow:inset 0 0 0 1px rgba(49,88,43,.1)}
+      .fourp-rating-pill.auto{opacity:.92}
+      .fourp-compact-input{width:100%;height:40px;border:1.5px solid #3d6e99;border-radius:8px;padding:0 10px;background:#fff;color:#17202a;font:inherit;box-sizing:border-box}
+      .fourp-double-input{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+      .fourp-input-caption{display:block;margin-bottom:4px;color:#667085;font-size:10px;font-weight:700;line-height:1.2}
+      .fourp-double-input .fourp-compact-input{margin-top:0}
+      .fourp-system-note{min-height:40px;display:flex;align-items:center;color:#667085;font-size:11px;line-height:1.35}
+      .fourp-dialog-sheet{padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+      .fourp-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+      .fourp-dialog-head h3{margin:0;font-size:19px;line-height:1.25}
+      .fourp-help-body{padding:12px;border-radius:12px;background:#f8fafc;color:#344054;font-size:14px;line-height:1.55}
+      .fourp-score-choice-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:8px 0 12px}
+      .fourp-score-choice-grid button{height:50px;border:1px solid #b8d4a8;border-radius:11px;background:#e7f3df;color:#31582b;font-size:20px;font-weight:900}
+      .fourp-trt-card .card-title{display:flex;align-items:center;justify-content:space-between;gap:10px}
+      .fourp-trt-total-display{display:flex;align-items:center;gap:6px}
+      .fourp-trt-total-display b{font-size:18px}
+      .fourp-trt-total-display .fourp-star{font-size:15px}
+      .fourp-trt-list{margin-top:8px}
+      .fourp-trt-line{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #eaecf0;color:#475467;font-size:12px;line-height:1.35}
+      .fourp-trt-line:last-child{border-bottom:0}
+      .fourp-trt-line b{color:#17202a;text-align:right}
+      .fourp-timeline-rating{display:inline-flex;align-items:center;gap:6px;margin-top:7px;padding:5px 8px;border-radius:9px;background:#fff8db;color:#775d00;font-size:12px;font-weight:850}
+      .fourp-timeline-rating .fourp-star{font-size:13px}
+      @media(max-width:360px){
+        .fourp-rating-label-line{grid-template-columns:24px minmax(0,1fr) 58px}
+        .fourp-rating-control-line{grid-template-columns:minmax(0,1fr) 58px;margin-left:33px}
+        .fourp-rating-pill,.fourp-rating-button{width:58px}
+        .fourp-star{font-size:18px}
+      }
+    `;
+    document.head.appendChild(style);
+  }
 
   const section = document.createElement('section');
   section.id = 'fourp-visit-section';
@@ -352,7 +400,10 @@ function ensureFourPVisitUi() {
   section.innerHTML = `
     <div class="fourp-section-head">
       <h3 class="fourp-section-title">Рейтинг ТРТ</h3>
-      <span id="fourp-total-score" class="fourp-total-rating">0,0</span>
+      <div class="fourp-total-display">
+        <strong id="fourp-total-score" class="fourp-total-value">0,0</strong>
+        <span id="fourp-total-stars">${fourPStarsHtml(0)}</span>
+      </div>
     </div>
     <input id="fourp-place-location" type="hidden">
     <input id="fourp-place-vog" type="hidden">
@@ -361,7 +412,7 @@ function ensureFourPVisitUi() {
       ${fourPRowHtml({help:'location',label:'Местоположение ТРТ',scoreId:'fourp-place-location-score',manualTarget:'fourp-place-location'})}
       ${fourPRowHtml({help:'placement',label:'Местоположение ВОГ внутри ТРТ',scoreId:'fourp-place-vog-score',manualTarget:'fourp-place-vog'})}
       ${fourPRowHtml({help:'sku',label:'Общее количество SKU в ТРТ',scoreId:'fourp-assortment-auto-score',inputHtml:'<input id="fourp-sku-count" class="fourp-compact-input" type="number" min="0" step="1" inputmode="numeric" placeholder="Например: 1200">'})}
-      ${fourPRowHtml({help:'share',label:'Доля ВОГ в ассортименте',scoreId:'fourp-share-auto-score',inputHtml:'<input id="fourp-vog-sku-count" class="fourp-compact-input" type="number" min="0" step="1" inputmode="numeric" placeholder="Количество SKU ВОГ, например: 200"><div id="fourp-share-percent-note" class="fourp-rating-note">Доля: 0%</div>'})}
+      ${fourPRowHtml({help:'share',label:'SKU от ВОГ в ассортименте ТРТ',scoreId:'fourp-share-auto-score',inputHtml:'<input id="fourp-vog-sku-count" class="fourp-compact-input" type="number" min="0" step="1" inputmode="numeric" placeholder="Например: 200"><div id="fourp-share-percent-note" class="fourp-rating-note">Доля: 0%</div>'})}
       ${fourPRowHtml({help:'commercial',label:'Коммерческие условия',scoreId:'fourp-commercial-score',inputHtml:'<div class="fourp-system-note">Оценка поступит из системы по КУ</div>'})}
       ${fourPRowHtml({help:'motivation',label:'Мотивация',scoreId:'fourp-motivation-score',inputHtml:'<div class="fourp-double-input"><label><span class="fourp-input-caption">Всего продавцов</span><input id="fourp-seller-count" class="fourp-compact-input" type="number" min="0" step="1" inputmode="numeric" placeholder="5"></label><label><span class="fourp-input-caption">Участники VOG Club</span><input id="fourp-vog-club-count" class="fourp-compact-input" type="number" min="0" step="1" inputmode="numeric" placeholder="5"></label></div><div id="fourp-seller-percent-note" class="fourp-rating-note">Участие: 0%</div>'})}
       ${fourPRowHtml({help:'display',label:'Качество выставки ВОГ',scoreId:'fourp-consumer-promo-score',manualTarget:'fourp-consumer-promo'})}
@@ -419,6 +470,7 @@ function updateFourPVisitPreview() {
   $('fourp-motivation-score').textContent = fourPFormatScore(assessment?.promotion?.sellerMotivationScore);
   $('fourp-consumer-promo-score').textContent = fourPFormatScore(assessment?.promotion?.consumerPromoScore);
   $('fourp-total-score').textContent = fourPFormatScore(assessment?.totalScore);
+  $('fourp-total-stars').innerHTML = fourPStarsHtml(assessment?.totalScore);
   $('fourp-share-percent-note').textContent = `Доля: ${assessment?.product?.vogSharePercent != null ? String(assessment.product.vogSharePercent).replace('.', ',') : '0'}%`;
   $('fourp-seller-percent-note').textContent = `Участие: ${assessment?.promotion?.sellerParticipationPercent != null ? String(assessment.promotion.sellerParticipationPercent).replace('.', ',') : '0'}%`;
 }
@@ -434,6 +486,19 @@ function resetFourPVisitForm() {
     'fourp-vog-club-count',
     'fourp-consumer-promo',
   ].forEach(id => { if ($(id)) $(id).value = ''; });
+  updateFourPVisitPreview();
+}
+
+function populateFourPVisitForm(value) {
+  ensureFourPVisitUi();
+  const assessment = normalizeFourPAssessment(value);
+  $('fourp-place-location').value = assessment?.place?.locationScore ?? '';
+  $('fourp-place-vog').value = assessment?.place?.vogPlacementScore ?? '';
+  $('fourp-sku-count').value = assessment?.product?.skuCount ?? '';
+  $('fourp-vog-sku-count').value = assessment?.product?.vogSkuCount ?? '';
+  $('fourp-seller-count').value = assessment?.promotion?.sellerCount ?? '';
+  $('fourp-vog-club-count').value = assessment?.promotion?.vogClubParticipants ?? '';
+  $('fourp-consumer-promo').value = assessment?.promotion?.consumerPromoScore ?? '';
   updateFourPVisitPreview();
 }
 
@@ -486,7 +551,7 @@ function ensureFourPTrtCardUi() {
   card.id = 'trt-fourp-mobile-card';
   card.className = 'card fourp-trt-card';
   card.innerHTML = `
-    <h3 class="card-title"><span>Рейтинг ТРТ</span><span id="trt-fourp-total" class="fourp-trt-rating">0,0</span></h3>
+    <h3 class="card-title"><span>Рейтинг ТРТ</span><span class="fourp-trt-total-display"><b id="trt-fourp-total">0,0</b><span id="trt-fourp-stars">${fourPStarsHtml(0)}</span></span></h3>
     <div id="trt-fourp-empty" class="file-note">Рейтинг ещё не заполнен. Внесите данные во время визита.</div>
     <div id="trt-fourp-content" hidden>
       <div id="trt-fourp-details" class="fourp-trt-list"></div>
@@ -504,6 +569,7 @@ function renderFourPTrtCard() {
   $('trt-fourp-empty').hidden = hasAssessment;
   $('trt-fourp-content').hidden = !hasAssessment;
   $('trt-fourp-total').textContent = fourPFormatScore(assessment?.totalScore);
+  $('trt-fourp-stars').innerHTML = fourPStarsHtml(assessment?.totalScore);
   if (!hasAssessment) return;
 
   const commercialText = assessment.promotion.commercialTermsScore == null
@@ -513,7 +579,7 @@ function renderFourPTrtCard() {
     <div class="fourp-trt-line"><span>Местоположение ТРТ</span><b>${fourPFormatScore(assessment.place.locationScore)}</b></div>
     <div class="fourp-trt-line"><span>Местоположение ВОГ внутри ТРТ</span><b>${fourPFormatScore(assessment.place.vogPlacementScore)}</b></div>
     <div class="fourp-trt-line"><span>Ассортимент</span><b>${Number(assessment.product.skuCount).toLocaleString('ru-RU')} SKU · ${fourPFormatScore(assessment.product.assortmentScore)}</b></div>
-    <div class="fourp-trt-line"><span>Доля ВОГ</span><b>${assessment.product.vogSkuCount == null ? '—' : Number(assessment.product.vogSkuCount).toLocaleString('ru-RU')} SKU · ${String(assessment.product.vogSharePercent ?? 0).replace('.', ',')}% · ${fourPFormatScore(assessment.product.vogShareScore)}</b></div>
+    <div class="fourp-trt-line"><span>SKU от ВОГ в ассортименте ТРТ</span><b>${assessment.product.vogSkuCount == null ? '—' : Number(assessment.product.vogSkuCount).toLocaleString('ru-RU')} SKU · ${String(assessment.product.vogSharePercent ?? 0).replace('.', ',')}% · ${fourPFormatScore(assessment.product.vogShareScore)}</b></div>
     <div class="fourp-trt-line"><span>Коммерческие условия</span><b>${escapeHtml(commercialText)}</b></div>
     <div class="fourp-trt-line"><span>Мотивация</span><b>${assessment.promotion.sellerCount == null ? fourPFormatScore(assessment.promotion.sellerMotivationScore) : `${assessment.promotion.vogClubParticipants ?? 0}/${assessment.promotion.sellerCount} · ${fourPFormatScore(assessment.promotion.sellerMotivationScore)}`}</b></div>
     <div class="fourp-trt-line"><span>Качество выставки ВОГ</span><b>${fourPFormatScore(assessment.promotion.consumerPromoScore)}</b></div>`;
@@ -523,7 +589,423 @@ function renderFourPTrtCard() {
 function fourPVisitTimelineHtml(visit) {
   const assessment = normalizeFourPAssessment(visit?.fourP);
   if (!assessment?.complete) return '';
-  return `<div class="fourp-timeline-rating">Рейтинг ТРТ: ${fourPFormatScore(assessment.totalScore)}</div>`;
+  return `<div class="fourp-timeline-rating"><span>Рейтинг ТРТ: ${fourPFormatScore(assessment.totalScore)}</span>${fourPStarsHtml(assessment.totalScore)}</div>`;
+}
+
+
+function visitDateKey(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isVisitEditableToday(visit) {
+  return Boolean(visit && visitDateKey(visit.createdAt) === visitDateKey(new Date()));
+}
+
+function normalizedVisitResults(visit) {
+  const source = Array.isArray(visit?.results)
+    ? visit.results
+    : [String(visit?.result || '')];
+
+  const items = [];
+  source.forEach(rawItem => {
+    String(rawItem || '').split(/\s*[•;]\s*/).forEach(item => {
+      const value = String(item || '').trim();
+      if (value && !items.includes(value)) items.push(value);
+    });
+  });
+
+  const other = String(visit?.otherResult || '').trim();
+  return {items, other};
+}
+
+function visitResultSummary(visit) {
+  const {items, other} = normalizedVisitResults(visit);
+  return [...items, ...(other ? [other] : [])].join(' • ') || 'Результат не указан';
+}
+
+function setVisitResultSelection(items=[], other='') {
+  visitResultSelection = new Set(
+    (Array.isArray(items) ? items : [])
+      .map(item => String(item || '').trim())
+      .filter(item => VISIT_RESULT_OPTIONS.includes(item))
+  );
+
+  const unknown = (Array.isArray(items) ? items : [])
+    .map(item => String(item || '').trim())
+    .filter(item => item && !VISIT_RESULT_OPTIONS.includes(item));
+
+  visitOtherResult = String(other || unknown.join(' • ')).trim();
+  updateVisitResultTrigger();
+}
+
+function updateVisitResultTrigger() {
+  const trigger = $('visit-result-trigger');
+  if (!trigger) return;
+
+  const values = [...visitResultSelection];
+  if (visitOtherResult) values.push(visitOtherResult);
+
+  trigger.classList.toggle('empty', values.length === 0);
+  trigger.innerHTML = values.length
+    ? `<span>${values.map(escapeHtml).join('</span><span>')}</span>`
+    : '<span>Выберите результат</span>';
+}
+
+function renderVisitResultPicker() {
+  document.querySelectorAll('[data-visit-result-option]').forEach(input => {
+    input.checked = visitResultDraftSelection.has(input.value);
+  });
+  const otherInput = $('visit-other-result-input');
+  if (otherInput) otherInput.value = visitResultDraftOther;
+}
+
+function openVisitResultPicker() {
+  visitResultDraftSelection = new Set(visitResultSelection);
+  visitResultDraftOther = visitOtherResult;
+  renderVisitResultPicker();
+  $('visit-result-picker')?.classList.add('open');
+}
+
+function closeVisitResultPicker() {
+  $('visit-result-picker')?.classList.remove('open');
+}
+
+function applyVisitResultPicker() {
+  visitResultSelection = new Set(visitResultDraftSelection);
+  visitOtherResult = String($('visit-other-result-input')?.value || '').trim();
+  updateVisitResultTrigger();
+  closeVisitResultPicker();
+}
+
+function collectVisitResults() {
+  const items = [...visitResultSelection];
+  const otherResult = String(visitOtherResult || '').trim();
+  const values = [...items, ...(otherResult ? [otherResult] : [])];
+
+  if (!values.length) {
+    showToast('Выберите хотя бы один результат визита');
+    return null;
+  }
+
+  return {
+    items,
+    otherResult,
+    result: values.join(' • '),
+  };
+}
+
+function startVisitVoiceInput() {
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const button = $('visit-voice-button');
+  const textarea = $('visit-comment');
+
+  if (!Recognition) {
+    showToast('Голосовой ввод не поддерживается на этом устройстве');
+    return;
+  }
+
+  if (visitVoiceRecognition) {
+    try { visitVoiceRecognition.stop(); } catch (_) {}
+    return;
+  }
+
+  const recognition = new Recognition();
+  visitVoiceRecognition = recognition;
+  recognition.lang = 'ru-RU';
+  recognition.continuous = false;
+  recognition.interimResults = true;
+
+  let finalText = '';
+
+  recognition.onstart = () => {
+    button?.classList.add('listening');
+    if (button) button.textContent = 'Слушаю…';
+  };
+
+  recognition.onresult = event => {
+    let interim = '';
+    for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      const transcript = String(event.results[index][0]?.transcript || '').trim();
+      if (event.results[index].isFinal) finalText += `${transcript} `;
+      else interim += transcript;
+    }
+    if (button && interim) button.title = interim;
+  };
+
+  recognition.onerror = event => {
+    if (event.error !== 'aborted') {
+      showToast('Не удалось распознать речь');
+    }
+  };
+
+  recognition.onend = () => {
+    const recognized = finalText.trim();
+    if (recognized && textarea) {
+      const current = textarea.value.trim();
+      textarea.value = current ? `${current} ${recognized}` : recognized;
+      textarea.dispatchEvent(new Event('input', {bubbles:true}));
+    }
+    button?.classList.remove('listening');
+    if (button) {
+      button.textContent = '🎙';
+      button.title = 'Голосовой ввод';
+    }
+    visitVoiceRecognition = null;
+  };
+
+  try {
+    recognition.start();
+  } catch (_) {
+    visitVoiceRecognition = null;
+    button?.classList.remove('listening');
+    if (button) button.textContent = '🎙';
+  }
+}
+
+function visitJournalPoint(visit) {
+  return trts.find(item => String(item.id) === String(visit?.trtId)) || null;
+}
+
+function visitJournalCardHtml(visit) {
+  const point = visitJournalPoint(visit);
+  const assessment = normalizeFourPAssessment(visit?.fourP);
+  const editable = isVisitEditableToday(visit);
+  return `
+    <button class="visit-journal-card" type="button" data-visit-journal-id="${escapeHtml(visit.id)}">
+      <div class="visit-journal-head">
+        <div>
+          <strong>${escapeHtml(point?.client || point?.holding || 'ТРТ')}</strong>
+          <span>${escapeHtml(formatDateTime(visit.createdAt))}</span>
+        </div>
+        <span class="visit-edit-state ${editable ? 'editable' : ''}">${editable ? 'Можно исправить' : 'Завершён'}</span>
+      </div>
+      <div class="visit-journal-result">${escapeHtml(visitResultSummary(visit))}</div>
+      ${assessment?.complete ? `<div class="visit-journal-rating"><b>${fourPFormatScore(assessment.totalScore)}</b>${fourPStarsHtml(assessment.totalScore)}</div>` : ''}
+      ${visit.comment ? `<div class="visit-journal-comment">${escapeHtml(visit.comment)}</div>` : ''}
+    </button>`;
+}
+
+function renderVisitJournal() {
+  const list = $('visits-journal-list');
+  if (!list) return;
+
+  const query = normalizeText($('visits-journal-search')?.value || '');
+  const filter = $('visits-journal-filter')?.value || 'all';
+  const now = new Date();
+  const today = visitDateKey(now);
+  const weekAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+
+  const rows = visits.filter(visit => {
+    const point = visitJournalPoint(visit);
+    const date = new Date(visit.createdAt);
+    if (filter === 'today' && visitDateKey(date) !== today) return false;
+    if (filter === 'week' && (!Number.isFinite(date.getTime()) || date.getTime() < weekAgo)) return false;
+    if (!query) return true;
+    return normalizeText([
+      point?.client,
+      point?.holding,
+      point?.address,
+      visitResultSummary(visit),
+      visit.comment,
+      visit.nextStep,
+    ].join(' ')).includes(query);
+  });
+
+  $('visits-journal-count').textContent = String(rows.length);
+  list.innerHTML = rows.length
+    ? rows.map(visitJournalCardHtml).join('')
+    : '<div class="empty-state" style="margin:0;"><h3>Визитов нет</h3><p>Новые визиты появятся здесь после сохранения.</p></div>';
+}
+
+function openVisitFromJournal(visitId) {
+  const visit = visits.find(item => String(item.id) === String(visitId));
+  if (!visit) return;
+
+  if (!isVisitEditableToday(visit)) {
+    alert('Исправления невозможны. Создайте новый визит');
+    return;
+  }
+
+  selectedTrtId = visit.trtId;
+  openVisitModal(String(visit.id));
+}
+
+function ensureVisitWorkflowUi() {
+  if (document.body.dataset.visitWorkflowUi === '1') return;
+  document.body.dataset.visitWorkflowUi = '1';
+  ensureFourPVisitUi();
+
+  const style = document.createElement('style');
+  style.id = 'visit-workflow-style';
+  style.textContent = `
+    .bottom-nav{grid-template-columns:repeat(5,1fr)!important}
+    .visit-result-trigger{width:100%;min-height:48px;border:1px solid #d0d5dd;border-radius:12px;padding:8px 38px 8px 11px;background:#fff;color:#17202a;text-align:left;position:relative}
+    .visit-result-trigger::after{content:'⌄';position:absolute;right:13px;top:50%;transform:translateY(-50%);color:#667085;font-size:18px}
+    .visit-result-trigger.empty{color:#98a2b3}
+    .visit-result-trigger span{display:inline-flex;margin:2px 4px 2px 0;padding:5px 7px;border-radius:8px;background:#f2f4f7;color:#344054;font-size:12px;font-weight:750}
+    .visit-result-trigger.empty span{padding:0;background:transparent;color:#98a2b3;font-size:14px;font-weight:500}
+    .visit-result-option{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid #eaecf0;color:#17202a;font-weight:700}
+    .visit-result-option input{width:20px;height:20px;margin:0;accent-color:#176b4d}
+    .visit-result-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+    .visit-label-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .visit-voice-button{width:42px;height:34px;border:1px solid #b8d4a8;border-radius:10px;background:#fff;color:#176b4d;font-size:18px;font-weight:800}
+    .visit-voice-button.listening{background:#e7f3ee;animation:visitPulse 1s infinite alternate}
+    @keyframes visitPulse{from{box-shadow:0 0 0 0 rgba(23,107,77,.15)}to{box-shadow:0 0 0 7px rgba(23,107,77,0)}}
+    .visit-media-button-row{display:grid!important;grid-template-columns:1fr 1fr;gap:12px}
+    .visit-media-button{min-height:92px!important;border:2px solid #b8d4a8!important;border-radius:16px!important;background:#f8fff9!important;color:#176b4d!important;font-size:16px!important;display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+    .visit-media-button svg{width:30px;height:30px;fill:currentColor}
+    .visit-journal-list{display:grid;gap:10px}
+    .visit-journal-card{width:100%;border:1px solid #e4e7ec;border-radius:15px;padding:13px;background:#fff;color:#17202a;text-align:left;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+    .visit-journal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+    .visit-journal-head strong{display:block;font-size:15px}
+    .visit-journal-head span{display:block;margin-top:3px;color:#667085;font-size:11px}
+    .visit-edit-state{flex:0 0 auto!important;margin:0!important;padding:5px 7px;border-radius:8px;background:#f2f4f7;color:#667085!important;font-size:10px!important;font-weight:800}
+    .visit-edit-state.editable{background:#e7f3ee;color:#176b4d!important}
+    .visit-journal-result{margin-top:9px;font-size:13px;font-weight:750;line-height:1.35}
+    .visit-journal-comment{margin-top:7px;color:#667085;font-size:12px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .visit-journal-rating{display:flex;align-items:center;gap:6px;margin-top:8px;color:#775d00}
+    .visit-journal-rating .fourp-star{font-size:14px}
+    .visit-timeline-button{width:100%;border:0;text-align:left;color:inherit;cursor:pointer}
+    .visit-edit-notice{margin:0 0 12px;padding:10px 12px;border-radius:11px;background:#e7f3ee;color:#176b4d;font-size:12px;font-weight:750}
+  `;
+  document.head.appendChild(style);
+
+  const originalResult = $('visit-result');
+  if (originalResult) {
+    originalResult.hidden = true;
+    originalResult.disabled = true;
+    const group = originalResult.closest('.field-group');
+    const label = group?.querySelector('.field-label');
+    if (label) {
+      label.textContent = 'Результаты визита *';
+      label.htmlFor = 'visit-result-trigger';
+    }
+    if (!$('visit-result-trigger')) {
+      const trigger = document.createElement('button');
+      trigger.id = 'visit-result-trigger';
+      trigger.type = 'button';
+      trigger.className = 'visit-result-trigger empty';
+      trigger.innerHTML = '<span>Выберите результат</span>';
+      originalResult.insertAdjacentElement('afterend', trigger);
+      trigger.addEventListener('click', openVisitResultPicker);
+    }
+  }
+
+  if (!$('visit-result-picker')) {
+    const picker = document.createElement('div');
+    picker.id = 'visit-result-picker';
+    picker.className = 'modal-backdrop';
+    picker.innerHTML = `
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <h2 class="modal-title">Результаты визита</h2>
+        <div>${VISIT_RESULT_OPTIONS.map(option => `
+          <label class="visit-result-option">
+            <input type="checkbox" value="${escapeHtml(option)}" data-visit-result-option>
+            <span>${escapeHtml(option)}</span>
+          </label>`).join('')}</div>
+        <div class="field-group" style="margin-top:14px;">
+          <label class="field-label" for="visit-other-result-input">Другой результат</label>
+          <input id="visit-other-result-input" class="text-input" type="text" placeholder="Введите свой результат">
+        </div>
+        <div class="visit-result-actions">
+          <button id="visit-result-cancel" class="secondary-button" type="button">Отмена</button>
+          <button id="visit-result-apply" class="primary-button" type="button">Готово</button>
+        </div>
+      </div>`;
+    document.body.appendChild(picker);
+
+    picker.querySelectorAll('[data-visit-result-option]').forEach(input => {
+      input.addEventListener('change', () => {
+        if (input.checked) visitResultDraftSelection.add(input.value);
+        else visitResultDraftSelection.delete(input.value);
+      });
+    });
+    $('visit-result-cancel').addEventListener('click', closeVisitResultPicker);
+    $('visit-result-apply').addEventListener('click', applyVisitResultPicker);
+    picker.addEventListener('click', event => {
+      if (event.target === picker) closeVisitResultPicker();
+    });
+  }
+
+  const comment = $('visit-comment');
+  const commentGroup = comment?.closest('.field-group');
+  const commentLabel = commentGroup?.querySelector('.field-label');
+  if (commentLabel && !$('visit-voice-button')) {
+    const row = document.createElement('div');
+    row.className = 'visit-label-row';
+    commentLabel.replaceWith(row);
+    row.appendChild(commentLabel);
+    const voice = document.createElement('button');
+    voice.id = 'visit-voice-button';
+    voice.type = 'button';
+    voice.className = 'visit-voice-button';
+    voice.textContent = '🎙';
+    voice.title = 'Голосовой ввод';
+    row.appendChild(voice);
+    voice.addEventListener('click', startVisitVoiceInput);
+  }
+
+  const photoButton = $('visit-photo-button');
+  const videoButton = $('visit-video-button');
+  const mediaRow = photoButton?.parentElement;
+  if (mediaRow) mediaRow.classList.add('visit-media-button-row');
+  if (photoButton) {
+    photoButton.classList.add('visit-media-button');
+    photoButton.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9 3 7.2 5H4a2 2 0 0 0-2 2v12h20V7a2 2 0 0 0-2-2h-3.2L15 3H9Zm3 14a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"/></svg><span>Фото</span>';
+  }
+  if (videoButton) {
+    videoButton.classList.add('visit-media-button');
+    videoButton.innerHTML = '<svg viewBox="0 0 24 24"><path d="M3 5h13v14H3V5Zm15 4 4-3v12l-4-3V9Z"/></svg><span>Видео</span>';
+  }
+
+  const title = $('visit-modal')?.querySelector('.modal-title');
+  if (title) title.id = 'visit-modal-title';
+
+  if (!$('screen-visits-journal')) {
+    const screen = document.createElement('section');
+    screen.id = 'screen-visits-journal';
+    screen.className = 'screen';
+    screen.innerHTML = `
+      <div class="screen-inner">
+        <h2 class="section-title">Визиты <span id="visits-journal-count" class="counter-pill">0</span></h2>
+        <div class="list-toolbar">
+          <input id="visits-journal-search" type="search" placeholder="ТРТ, результат, комментарий">
+          <select id="visits-journal-filter">
+            <option value="all">Все визиты</option>
+            <option value="today">Сегодня</option>
+            <option value="week">За 7 дней</option>
+          </select>
+        </div>
+        <div id="visits-journal-list" class="visit-journal-list"></div>
+      </div>`;
+    $('screen-settings')?.insertAdjacentElement('beforebegin', screen);
+
+    $('visits-journal-search').addEventListener('input', renderVisitJournal);
+    $('visits-journal-filter').addEventListener('change', renderVisitJournal);
+    $('visits-journal-list').addEventListener('click', event => {
+      const card = event.target.closest('[data-visit-journal-id]');
+      if (card) openVisitFromJournal(card.dataset.visitJournalId);
+    });
+  }
+
+  const nav = document.querySelector('.bottom-nav');
+  if (nav && !nav.querySelector('[data-screen="visits-journal"]')) {
+    const button = document.createElement('button');
+    button.className = 'nav-button';
+    button.dataset.screen = 'visits-journal';
+    button.type = 'button';
+    button.innerHTML = `
+      <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6V2Zm8 1.5V8h4.5L14 3.5ZM9 12h8v-2H9v2Zm0 4h8v-2H9v2Zm0 4h6v-2H9v2Z"/></svg>
+      Визиты`;
+    const settingsButton = nav.querySelector('[data-screen="settings"]');
+    nav.insertBefore(button, settingsButton);
+  }
 }
 
 let db = null;
@@ -551,6 +1033,12 @@ let selectedTaskMode = 'view';
 let taskCompletionFiles = [];
 let taskCreationFiles = [];
 let completeTaskInProgress = false;
+let editingVisitId = null;
+let visitResultSelection = new Set();
+let visitOtherResult = '';
+let visitResultDraftSelection = new Set();
+let visitResultDraftOther = '';
+let visitVoiceRecognition = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -1014,11 +1502,15 @@ function optionalFiniteNumber(value) {
 }
 
 function visitSyncPayload(visit) {
+  const normalized = normalizedVisitResults(visit);
   return {
     id:String(visit.id || ''),
     trtId:String(visit.trtId || ''),
     createdAt:visit.createdAt || new Date().toISOString(),
-    result:String(visit.result || ''),
+    updatedAt:visit.updatedAt || null,
+    result:visitResultSummary(visit),
+    results:normalized.items,
+    otherResult:normalized.other,
     nextStep:String(visit.nextStep || ''),
     comment:String(visit.comment || ''),
     fourP:normalizeFourPAssessment(visit.fourP),
@@ -1058,7 +1550,11 @@ async function syncOneVisitWithServer(visitId, {notify=true}={}) {
     return {ok:true};
   } catch (error) {
     console.warn('Не удалось отправить визит на сервер', error);
-    if (notify) showToast('Визит сохранён на устройстве. Отправка на сервер повторится автоматически.');
+    if (notify) {
+      const message = String(error?.message || '');
+      if (message.includes('Исправления невозможны')) showToast('Исправления невозможны. Создайте новый визит');
+      else showToast('Визит сохранён на устройстве. Отправка на сервер повторится автоматически.');
+    }
     return {ok:false, error, offline:Boolean(error.isNetworkError)};
   }
 }
@@ -1958,6 +2454,7 @@ function renderAll() {
   renderMap();
   renderPoints();
   renderTasks();
+  renderVisitJournal();
   renderStats();
   if (selectedTrtId) {
     renderSelectedTrt();
@@ -2108,8 +2605,11 @@ function ensureTrtWorkspaceUi() {
 function switchScreen(name) {
   document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
   document.querySelectorAll('.nav-button').forEach(button => button.classList.toggle('active', button.dataset.screen === name));
-  $('screen-' + name).classList.add('active');
+  const screen = $('screen-' + name);
+  if (!screen) return;
+  screen.classList.add('active');
   if (name === 'map' && map) setTimeout(() => map.invalidateSize(), 40);
+  if (name === 'visits-journal') renderVisitJournal();
 }
 
 function selectedTrt() {
@@ -2317,15 +2817,20 @@ function renderVisits() {
   const rows = visits.filter(item => item.trtId === selectedTrtId);
   $('visits-list').innerHTML = rows.length
     ? rows.map(item => `
-      <article class="timeline-item">
+      <button class="timeline-item visit-timeline-button" type="button" data-visit-edit="${escapeHtml(item.id)}">
         <div class="timeline-date">${escapeHtml(formatDateTime(item.createdAt))}${item.distanceKm != null ? ` · ${item.distanceKm.toFixed(2)} км от точки` : ''}</div>
-        <div class="timeline-title">${escapeHtml(item.result || 'Визит')}</div>
+        <div class="timeline-title">${escapeHtml(visitResultSummary(item))}</div>
         ${fourPVisitTimelineHtml(item)}
         ${item.nextStep ? `<div class="timeline-text"><b>Следующий шаг:</b> ${escapeHtml(item.nextStep)}</div>` : ''}
         ${item.comment ? `<div class="timeline-text">${escapeHtml(item.comment)}</div>` : ''}
-      </article>
+        <div class="timeline-text"><b>${isVisitEditableToday(item) ? 'Нажмите, чтобы исправить визит сегодня' : 'Визит завершён'}</b></div>
+      </button>
     `).join('')
-    : '<div class="empty-state" style="margin:0;"><h3>Визитов пока нет</h3><p>Нажмите «Зафиксировать визит» во время посещения точки.</p></div>';
+    : '<div class="empty-state" style="margin:0;"><h3>Визитов пока нет</h3><p>Нажмите «Визит» во время посещения точки.</p></div>';
+
+  $('visits-list').querySelectorAll('[data-visit-edit]').forEach(button => {
+    button.addEventListener('click', () => openVisitFromJournal(button.dataset.visitEdit));
+  });
 }
 
 function renderMedia() {
@@ -2430,22 +2935,73 @@ function setVisitSaveBusy(isBusy) {
   button.textContent = isBusy ? 'Сохраняем…' : button.dataset.defaultText;
 }
 
-function openVisitModal() {
-  if (!selectedTrtId) return;
+function openVisitModal(visitId=null) {
+  if (visitId && typeof visitId !== 'string') visitId = null;
   if (saveVisitInProgress) {
     showToast('Предыдущий визит ещё сохраняется');
     return;
   }
+
+  const existing = visitId
+    ? visits.find(item => String(item.id) === String(visitId))
+    : null;
+
+  if (existing && !isVisitEditableToday(existing)) {
+    alert('Исправления невозможны. Создайте новый визит');
+    return;
+  }
+
+  if (existing) selectedTrtId = existing.trtId;
+  if (!selectedTrtId) return;
+
+  ensureVisitWorkflowUi();
   ensureFourPVisitUi();
-  setVisitSaveBusy(false);
+
+  editingVisitId = existing ? String(existing.id) : null;
   visitFiles = [];
-  $('visit-result').value = 'Переговоры проведены';
-  $('visit-next-step').value = '';
-  $('visit-comment').value = '';
+
+  const title = $('visit-modal-title') || $('visit-modal')?.querySelector('.modal-title');
+  if (title) title.textContent = existing ? 'Редактирование визита' : 'Новый визит';
+
+  const saveButton = $('save-visit-button');
+  if (saveButton) {
+    saveButton.dataset.defaultText = existing ? 'Сохранить изменения' : 'Сохранить визит';
+  }
+  setVisitSaveBusy(false);
+
+  if (existing) {
+    const resultData = normalizedVisitResults(existing);
+    setVisitResultSelection(resultData.items, resultData.other);
+    $('visit-next-step').value = existing.nextStep || '';
+    $('visit-comment').value = existing.comment || '';
+    populateFourPVisitForm(existing.fourP);
+
+    const existingFiles = mediaItems.filter(item => String(item.visitId) === String(existing.id)).length;
+    $('visit-files-note').textContent = existingFiles
+      ? `Существующие файлы: ${existingFiles}. Можно добавить новые.`
+      : 'Можно добавить фото или видео';
+  } else {
+    setVisitResultSelection([], '');
+    $('visit-next-step').value = '';
+    $('visit-comment').value = '';
+    resetFourPVisitForm();
+    $('visit-files-note').textContent = 'Файлы не выбраны';
+  }
+
   $('visit-photo-input').value = '';
   $('visit-video-input').value = '';
-  $('visit-files-note').textContent = 'Файлы не выбраны';
-  resetFourPVisitForm();
+
+  let notice = $('visit-edit-notice');
+  if (existing && !notice) {
+    notice = document.createElement('div');
+    notice.id = 'visit-edit-notice';
+    notice.className = 'visit-edit-notice';
+    notice.textContent = 'Сегодняшний визит можно исправлять до конца текущего дня.';
+    const firstGroup = $('visit-result-trigger')?.closest('.field-group');
+    firstGroup?.insertAdjacentElement('beforebegin', notice);
+  }
+  if (notice) notice.hidden = !existing;
+
   openModal('visit-modal');
 }
 
@@ -2514,38 +3070,68 @@ async function saveVisit() {
   const trt = selectedTrt();
   if (!trt) return;
 
+  const resultData = collectVisitResults();
+  if (!resultData) return;
+
   const fourP = collectRequiredFourPAssessment();
   if (!fourP) return;
+
+  const existing = editingVisitId
+    ? visits.find(item => String(item.id) === String(editingVisitId))
+    : null;
+
+  if (existing && !isVisitEditableToday(existing)) {
+    alert('Исправления невозможны. Создайте новый визит');
+    return;
+  }
 
   saveVisitInProgress = true;
   setVisitSaveBusy(true);
 
   const files = [...visitFiles];
   visitFiles = [];
-  const locationPromise = geolocate().catch(() => null);
+  const isEditing = Boolean(existing);
+  const locationPromise = isEditing
+    ? Promise.resolve(null)
+    : geolocate().catch(() => null);
 
-  const visit = {
-    id:uuid(),
-    trtId:trt.id,
-    createdAt:new Date().toISOString(),
-    result:$('visit-result').value,
-    nextStep:$('visit-next-step').value.trim(),
-    comment:$('visit-comment').value.trim(),
-    fourP,
-    latitude:null,
-    longitude:null,
-    accuracy:null,
-    distanceKm:null
-  };
+  const visit = isEditing
+    ? {
+        ...existing,
+        trtId:trt.id,
+        result:resultData.result,
+        results:resultData.items,
+        otherResult:resultData.otherResult,
+        nextStep:$('visit-next-step').value.trim(),
+        comment:$('visit-comment').value.trim(),
+        fourP,
+        updatedAt:new Date().toISOString(),
+        serverSyncedAt:null,
+      }
+    : {
+        id:uuid(),
+        trtId:trt.id,
+        createdAt:new Date().toISOString(),
+        updatedAt:new Date().toISOString(),
+        result:resultData.result,
+        results:resultData.items,
+        otherResult:resultData.otherResult,
+        nextStep:$('visit-next-step').value.trim(),
+        comment:$('visit-comment').value.trim(),
+        fourP,
+        latitude:null,
+        longitude:null,
+        accuracy:null,
+        distanceKm:null
+      };
 
-  // Закрываем окно сразу после первого нажатия. Повторное создание исключается блокировкой.
   closeModals();
 
   try {
     await putItem(STORE_VISITS, visit);
     await refreshData();
     setDetailTab('visits');
-    showToast('Визит сохранён на устройстве');
+    showToast(isEditing ? 'Изменения визита сохранены' : 'Визит сохранён на устройстве');
   } catch (error) {
     console.error('Не удалось сохранить визит', error);
     showToast('Не удалось сохранить визит на устройстве');
@@ -2553,9 +3139,9 @@ async function saveVisit() {
   } finally {
     saveVisitInProgress = false;
     setVisitSaveBusy(false);
+    editingVisitId = null;
   }
 
-  // Координаты, файлы и серверная отправка завершаются после закрытия окна.
   finishVisitSave(visit, trt, files, locationPromise);
 }
 
@@ -2818,6 +3404,7 @@ async function clearAllData() {
 function bindEvents() {
   ensureTaskCreationUi();
   ensureTrtWorkspaceUi();
+  ensureVisitWorkflowUi();
 
   document.querySelectorAll('.nav-button').forEach(button => {
     button.addEventListener('click', () => switchScreen(button.dataset.screen));
@@ -2847,7 +3434,7 @@ function bindEvents() {
   });
 
   $('save-trt-button').addEventListener('click', saveSelectedTrt);
-  $('start-visit-button').addEventListener('click', openVisitModal);
+  $('start-visit-button').addEventListener('click', () => openVisitModal());
   $('new-task-button').addEventListener('click', openTaskModal);
   $('open-sales-button').addEventListener('click', () => setDetailTab('sales'));
   $('save-visit-button').addEventListener('click', saveVisit);
