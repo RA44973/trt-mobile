@@ -552,11 +552,17 @@ function ensureFourPTrtCardUi() {
   card.className = 'card fourp-trt-card';
   card.innerHTML = `
     <button id="trt-fourp-toggle" class="fourp-trt-toggle" type="button" aria-expanded="false">
-      <span class="fourp-trt-toggle-title">Рейтинг ТРТ</span>
-      <span class="fourp-trt-toggle-score">
-        <b id="trt-fourp-total">0,0</b>
-        <span id="trt-fourp-stars">${fourPStarsHtml(0)}</span>
-        <span id="trt-fourp-chevron" class="fourp-trt-chevron">⌄</span>
+      <span class="fourp-trt-toggle-main">
+        <span class="fourp-trt-toggle-title">Рейтинг ТРТ</span>
+        <span class="fourp-trt-toggle-score">
+          <span id="trt-fourp-stars">${fourPStarsHtml(0)}</span>
+          <b id="trt-fourp-total">0,0</b>
+        </span>
+      </span>
+      <span id="trt-fourp-chevron" class="fourp-trt-chevron" aria-hidden="true">
+        <svg viewBox="0 0 48 24" focusable="false" aria-hidden="true">
+          <path d="M5 5 L24 16 L43 5" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
       </span>
     </button>
     <div id="trt-fourp-details-wrap" class="fourp-trt-details-wrap" hidden>
@@ -2683,6 +2689,9 @@ function configureTrtInfoUi() {
     value.parentElement?.classList.add('trt-primary-field');
   });
 
+  const summaryCard = $('detail-direction')?.closest('.card');
+  if (summaryCard) summaryCard.classList.add('trt-summary-card');
+
   const customIds = [
     'edit-contact','edit-phone','edit-actual-size','edit-stands',
     'edit-potential','edit-brands','edit-notes'
@@ -2717,12 +2726,20 @@ function ensureTrtWorkspaceUi() {
   const style = document.createElement('style');
   style.id = 'trt-workspace-style';
   style.textContent = `
-    #tab-info{padding-bottom:18px}
+    #detail-overlay{background:#f1f2f4!important}
+    #tab-info{padding-bottom:22px;background:#f1f2f4!important}
+    #tab-info>.card,.trt-summary-card,.fourp-trt-card{
+      border:0!important;
+      border-radius:22px!important;
+      background:#fff!important;
+      box-shadow:none!important;
+    }
+    .trt-summary-card{margin:0 14px 14px!important}
     .trt-work-actions{
       display:grid!important;
       grid-template-columns:repeat(2,minmax(0,1fr))!important;
-      gap:9px!important;
-      margin-top:14px;
+      gap:10px!important;
+      margin:16px 0 0!important;
       width:100%!important;
     }
     .trt-work-actions button{
@@ -2731,24 +2748,24 @@ function ensureTrtWorkspaceUi() {
       justify-content:center!important;
       width:100%!important;
       min-width:0!important;
-      min-height:50px!important;
-      padding:11px 4px!important;
-      font-size:15px!important;
-      font-weight:800!important;
+      min-height:54px!important;
+      padding:12px 4px!important;
+      font-size:16px!important;
+      font-weight:850!important;
       line-height:1.1!important;
       white-space:nowrap;
-      border:1px solid #a8d5c2!important;
-      border-radius:13px!important;
-      background:#e7f3ee!important;
-      color:#176b4d!important;
-      box-shadow:0 1px 2px rgba(16,24,40,.05)!important;
+      border:1px solid #3f8068!important;
+      border-radius:14px!important;
+      background:#4d9278!important;
+      color:#fff!important;
+      box-shadow:0 2px 5px rgba(48,111,86,.18)!important;
     }
     .trt-work-actions button:active{
-      background:#d5eadf!important;
+      background:#39765f!important;
       transform:translateY(1px);
     }
     .trt-archive-label{
-      margin:18px 4px 9px;
+      margin:20px 14px 9px;
       color:#667085;
       font-size:14px;
       font-weight:800;
@@ -2760,7 +2777,7 @@ function ensureTrtWorkspaceUi() {
       gap:9px!important;
       overflow:visible!important;
       padding:0!important;
-      margin:0 0 14px!important;
+      margin:0 14px 16px!important;
       border:0!important;
       background:transparent!important;
     }
@@ -2791,38 +2808,60 @@ function ensureTrtWorkspaceUi() {
     .trt-hidden-sales-tab{display:none!important}
     .trt-primary-field{padding-top:3px;padding-bottom:3px}
     .trt-primary-value{font-size:18px!important;font-weight:850!important;line-height:1.3!important;min-height:24px}
-    .fourp-trt-card{padding:0!important;overflow:hidden;margin-bottom:14px!important}
-    .fourp-trt-toggle{width:100%;min-height:58px;border:0;background:#fff;color:#17202a;padding:13px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left}
-    .fourp-trt-toggle-title{font-size:17px;font-weight:900}
-    .fourp-trt-toggle-score{display:flex;align-items:center;gap:7px;white-space:nowrap}
-    .fourp-trt-toggle-score b{font-size:20px;font-weight:900}
-    .fourp-trt-toggle-score .fourp-star{font-size:18px}
+    .fourp-trt-card{padding:0!important;overflow:hidden;margin-bottom:16px!important}
+    .fourp-trt-toggle{
+      width:100%;
+      min-height:92px;
+      border:0;
+      background:#fff;
+      color:#17202a;
+      padding:15px 16px 7px;
+      display:flex;
+      flex-direction:column;
+      align-items:stretch;
+      gap:5px;
+      text-align:left;
+    }
+    .fourp-trt-toggle-main{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%}
+    .fourp-trt-toggle-title{font-size:18px;font-weight:900}
+    .fourp-trt-toggle-score{display:flex;align-items:center;justify-content:flex-end;gap:9px;white-space:nowrap;margin-left:auto}
+    .fourp-trt-toggle-score b{
+      min-width:48px;
+      text-align:right;
+      font-size:23px;
+      font-weight:950;
+      color:#17202a;
+    }
+    .fourp-trt-toggle-score .fourp-star{font-size:19px}
     .fourp-trt-chevron{
-      display:inline-flex;
+      display:flex;
       align-items:center;
       justify-content:center;
-      width:38px;
-      height:30px;
-      border-radius:10px;
-      background:#e7f3ee;
-      color:#176b4d;
-      font-size:28px;
-      font-weight:950;
-      line-height:1;
-      transform:scaleX(1.3);
-      transition:transform .18s ease,background .18s ease;
+      width:100%;
+      height:28px;
+      color:#b4b7be;
+      transition:transform .2s ease,color .2s ease;
     }
-    .fourp-trt-chevron.open{transform:rotate(180deg) scaleX(1.3);background:#d5eadf}
-    .fourp-under-main-header{margin:10px 14px 14px!important}
+    .fourp-trt-chevron svg{width:52px;height:25px;display:block}
+    .fourp-trt-chevron.open{transform:rotate(180deg);color:#858992}
+    .fourp-under-main-header{margin:14px 14px 16px!important}
+    .trt-sales-field{
+      min-height:124px!important;
+      display:flex!important;
+      flex-direction:column!important;
+      box-sizing:border-box!important;
+    }
     .trt-sales-value{
       display:flex!important;
-      align-items:baseline!important;
+      flex:1 1 auto!important;
+      min-height:82px!important;
+      align-items:center!important;
       justify-content:center!important;
-      gap:6px!important;
+      gap:7px!important;
       width:100%!important;
       text-align:center!important;
     }
-    .trt-sales-number{font-size:21px!important;font-weight:950!important;line-height:1.15}
+    .trt-sales-number{font-size:30px!important;font-weight:950!important;line-height:1!important}
     .trt-sales-unit{font-size:15px!important;font-weight:750!important;color:#667085}
     .fourp-trt-details-wrap{padding:0 14px 13px;border-top:1px solid #eaecf0}
     .fourp-trt-line{font-size:13px!important;padding:10px 0!important}
@@ -2835,16 +2874,14 @@ function ensureTrtWorkspaceUi() {
   `;
   document.head.appendChild(style);
 
-  dataButton.textContent = 'Данные';
-  dataButton.hidden = true;
-  dataButton.style.display = 'none';
+  dataButton.remove();
   visitButton.textContent = 'Визит';
   taskButton.textContent = 'Задача';
   visitButton.setAttribute('aria-label', 'Зафиксировать визит в ТРТ');
   taskButton.setAttribute('aria-label', 'Поставить задачу по ТРТ');
 
   actions.classList.add('trt-work-actions');
-  actions.append(visitButton, taskButton, dataButton);
+  actions.append(visitButton, taskButton);
 
   let archiveLabel = $('trt-archive-label');
   if (!archiveLabel) {
@@ -2884,7 +2921,7 @@ function ensureTrtWorkspaceUi() {
   ensureFourPTrtCardUi();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v2.6';
+  if (version) version.textContent = 'v2.7';
 }
 
 function switchScreen(name) {
@@ -2929,6 +2966,7 @@ function renderSelectedTrt() {
   const salesValue = $('detail-size');
   if (salesValue) {
     salesValue.classList.add('trt-sales-value');
+    salesValue.parentElement?.classList.add('trt-sales-field');
     if (Number.isFinite(Number(trt.size))) {
       salesValue.innerHTML = `
         <span class="trt-sales-number">${Math.round(Number(trt.size)).toLocaleString('ru-RU')}</span>
@@ -3761,7 +3799,6 @@ function bindEvents() {
   $('save-trt-button').addEventListener('click', saveSelectedTrt);
   $('start-visit-button').addEventListener('click', () => openVisitModal());
   $('new-task-button').addEventListener('click', openTaskModal);
-  $('open-sales-button').addEventListener('click', () => setDetailTab('info'));
   $('save-visit-button').addEventListener('click', saveVisit);
   $('save-task-button').addEventListener('click', saveTask);
 
@@ -3836,6 +3873,25 @@ function ensureJournalAndAuthUi() {
     .auth-bootstrap-spinner{width:34px;height:34px;border:4px solid #d9eadf;border-top-color:#176b4d;border-radius:50%;animation:authBootstrapSpin .8s linear infinite}
     .auth-bootstrap-title{font-size:16px;font-weight:850}
     @keyframes authBootstrapSpin{to{transform:rotate(360deg)}}
+
+    #points-search,#tasks-search,#visits-journal-search,
+    input[type="search"]{
+      min-height:50px!important;
+      border:0!important;
+      border-radius:18px!important;
+      background-color:#f0f1f3!important;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5' fill='none' stroke='%232f3338' stroke-width='2.2'/%3E%3Cpath d='M15.5 15.5 21 21' fill='none' stroke='%232f3338' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E")!important;
+      background-repeat:no-repeat!important;
+      background-position:16px center!important;
+      background-size:23px 23px!important;
+      padding-left:49px!important;
+      padding-right:16px!important;
+      font-size:16px!important;
+      color:#17202a!important;
+      box-shadow:none!important;
+    }
+    #points-search::placeholder,#tasks-search::placeholder,#visits-journal-search::placeholder,
+    input[type="search"]::placeholder{color:#8c9098!important;opacity:1}
 
     .trt-journal-card{padding:15px!important;border-radius:16px!important}
     .trt-journal-card .trt-item-name{font-size:17px!important;line-height:1.3!important;font-weight:850!important}
