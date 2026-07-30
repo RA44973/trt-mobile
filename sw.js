@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trt-mobile-v1-14-trt-card-navigation';
+const CACHE_NAME = 'trt-mobile-v1-15-four-p-visits';
 const SHELL = [
   './',
   './index.html',
