@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trt-mobile-v2-4-journals-auth-no-flash';
+const CACHE_NAME = 'trt-mobile-v2-5-search-back-buttons';
 const SHELL = [
   './',
   './index.html',

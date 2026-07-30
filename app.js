@@ -815,6 +815,18 @@ function visitJournalPoint(visit) {
   return trts.find(item => String(item.id) === String(visit?.trtId)) || null;
 }
 
+function journalSearchText(...records) {
+  return normalizeText(records.map(record => {
+    if (record === null || record === undefined) return '';
+    if (typeof record === 'string' || typeof record === 'number') return String(record);
+    try {
+      return JSON.stringify(record);
+    } catch (_) {
+      return String(record);
+    }
+  }).join(' '));
+}
+
 function visitJournalCardHtml(visit) {
   const point = visitJournalPoint(visit);
   const assessment = normalizeFourPAssessment(visit?.fourP);
@@ -848,13 +860,15 @@ function renderVisitJournal() {
     if (filter === 'today' && visitDateKey(date) !== today) return false;
     if (filter === 'week' && (!Number.isFinite(date.getTime()) || date.getTime() < weekAgo)) return false;
     if (!query) return true;
-    return normalizeText([
-      point?.client,
-      point?.holding,
-      point?.address,
+    return journalSearchText(
+      visit,
+      point,
       visitResultSummary(visit),
-      visit.comment,
-    ].join(' ')).includes(query);
+      visit.employee,
+      visit.employeeName,
+      visit.employeeId,
+      currentUser?.full_name
+    ).includes(query);
   });
 
   $('visits-journal-count').textContent = String(rows.length);
@@ -1015,6 +1029,18 @@ function ensureVisitWorkflowUi() {
   const title = $('visit-modal')?.querySelector('.modal-title');
   if (title) title.id = 'visit-modal-title';
 
+  const visitSheet = $('visit-modal')?.querySelector('.modal-sheet');
+  if (visitSheet && !$('visit-modal-back-button')) {
+    const backButton = document.createElement('button');
+    backButton.id = 'visit-modal-back-button';
+    backButton.className = 'fullscreen-back-button';
+    backButton.type = 'button';
+    backButton.setAttribute('aria-label', 'Назад');
+    backButton.innerHTML = '← <span>Назад</span>';
+    title?.insertAdjacentElement('beforebegin', backButton);
+    backButton.addEventListener('click', closeModals);
+  }
+
   if (!$('screen-visits-journal')) {
     const screen = document.createElement('section');
     screen.id = 'screen-visits-journal';
@@ -1023,7 +1049,7 @@ function ensureVisitWorkflowUi() {
       <div class="screen-inner">
         <h2 class="section-title">Визиты <span id="visits-journal-count" class="counter-pill">0</span></h2>
         <div class="list-toolbar">
-          <input id="visits-journal-search" type="search" placeholder="ТРТ, результат, комментарий">
+          <input id="visits-journal-search" type="search" placeholder="Поиск по всем полям">
           <select id="visits-journal-filter">
             <option value="all">Все визиты</option>
             <option value="today">Сегодня</option>
@@ -1041,6 +1067,8 @@ function ensureVisitWorkflowUi() {
       if (card) openVisitFromJournal(card.dataset.visitJournalId);
     });
   }
+
+  applyUnifiedJournalSearchPlaceholders();
 
   const nav = document.querySelector('.bottom-nav');
   if (nav && !nav.querySelector('[data-screen="visits-journal"]')) {
@@ -2144,7 +2172,7 @@ function trtItemHtml(trt) {
       <div class="trt-journal-footer">
         <div class="trt-journal-manager">${escapeHtml(shortPersonName(trt.manager) || 'Менеджер не указан')}</div>
         <div class="trt-journal-rating" aria-label="Рейтинг ТРТ ${fourPFormatScore(rating)}">
-          <span>Рейтинг</span><b>${fourPFormatScore(rating)}</b><i>★</i>
+          <b>${fourPFormatScore(rating)}</b>
         </div>
       </div>
     </button>
@@ -2155,7 +2183,7 @@ function renderPoints() {
   const query = normalizeText($('points-search').value);
   const filter = $('points-filter').value;
   let rows = trts.filter(trt => {
-    const text = normalizeText([trt.client, trt.holding, trt.address, trt.manager, trt.format].join(' '));
+    const text = journalSearchText(trt);
     if (query && !text.includes(query)) return false;
     if (filter === 'withTasks' && pointOpenTasks(trt.id) === 0) return false;
     if (filter === 'visited' && pointVisitCount(trt.id) === 0) return false;
@@ -2235,6 +2263,7 @@ function ensureTaskDetailsUi() {
     <div id="task-detail-modal" class="modal-backdrop">
       <div class="modal-sheet task-detail-sheet">
         <div class="modal-handle"></div>
+        <button id="task-detail-back-button" class="fullscreen-back-button" type="button" aria-label="Назад">← <span>Назад</span></button>
         <h2 id="task-detail-title" class="modal-title">Задача</h2>
         <div id="task-detail-summary" class="task-detail-summary"></div>
         <div class="field-group">
@@ -2280,6 +2309,7 @@ function ensureTaskDetailsUi() {
     </div>
   `);
 
+  $('task-detail-back-button').addEventListener('click', closeTaskDetails);
   $('task-detail-close-button').addEventListener('click', closeTaskDetails);
   $('task-detail-open-trt-button').addEventListener('click', () => {
     const task = tasks.find(item => String(item.id) === String(selectedTaskId));
@@ -2471,7 +2501,7 @@ function renderTasks() {
   const filter = $('tasks-filter').value;
   let rows = tasks.filter(task => {
     const trt = trts.find(item => item.id === task.trtId);
-    const text = normalizeText([task.title, task.description, task.assignee, trt?.client, trt?.address].join(' '));
+    const text = journalSearchText(task, trt);
     if (query && !text.includes(query)) return false;
     if (filter === 'open' && task.status === 'done') return false;
     if (filter === 'done' && task.status !== 'done') return false;
@@ -3106,10 +3136,8 @@ function openVisitModal(visitId=null, options={}) {
     firstGroup?.insertAdjacentElement('beforebegin', notice);
   }
   if (notice) {
-    notice.hidden = !existing;
-    notice.textContent = readOnly
-      ? 'Исправления невозможны. Создайте новый визит'
-      : 'Сегодняшний визит можно исправлять до конца текущего дня.';
+    notice.hidden = !existing || !readOnly;
+    notice.textContent = 'Исправления невозможны. Создайте новый визит';
     notice.classList.toggle('readonly', readOnly);
   }
 
@@ -3127,7 +3155,7 @@ function setVisitModalReadOnly(readOnly) {
     if (!Object.prototype.hasOwnProperty.call(element.dataset, 'originalDisabled')) {
       element.dataset.originalDisabled = element.disabled ? '1' : '0';
     }
-    const isClose = element.classList.contains('modal-cancel');
+    const isClose = element.classList.contains('modal-cancel') || element.id === 'visit-modal-back-button';
     element.disabled = readOnly ? !isClose : element.dataset.originalDisabled === '1';
   });
 
@@ -3630,6 +3658,13 @@ function bindEvents() {
 }
 
 
+function applyUnifiedJournalSearchPlaceholders() {
+  ['points-search', 'tasks-search', 'visits-journal-search'].forEach(id => {
+    const input = $(id);
+    if (input) input.placeholder = 'Поиск по всем полям';
+  });
+}
+
 function ensureJournalAndAuthUi() {
   if (document.body.dataset.journalAuthUi === '1') return;
   document.body.dataset.journalAuthUi = '1';
@@ -3648,10 +3683,8 @@ function ensureJournalAndAuthUi() {
     .trt-journal-card .trt-item-address{font-size:13px!important;line-height:1.4!important;margin-top:5px!important}
     .trt-journal-footer{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:13px}
     .trt-journal-manager{font-size:15px;font-weight:800;color:#344054;line-height:1.3}
-    .trt-journal-rating{margin-left:auto;display:flex;align-items:center;gap:5px;color:#775d00;white-space:nowrap}
-    .trt-journal-rating span{font-size:11px;color:#667085;font-weight:700}
-    .trt-journal-rating b{font-size:17px;font-weight:900}
-    .trt-journal-rating i{font-style:normal;font-size:18px;color:#f5b800}
+    .trt-journal-rating{margin-left:auto;display:flex;align-items:center;color:#344054;white-space:nowrap}
+    .trt-journal-rating b{font-size:18px;font-weight:900}
 
     .task-journal-card{display:block!important;width:100%!important;border:1px solid #e4e7ec!important;border-radius:16px!important;padding:15px!important;background:#fff!important;color:#17202a!important;text-align:left!important;box-shadow:0 1px 2px rgba(16,24,40,.05)!important}
     .task-journal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
@@ -3664,6 +3697,8 @@ function ensureJournalAndAuthUi() {
     .task-journal-manager{margin-top:10px;font-size:14px;font-weight:750;color:#667085}
     .task-detail-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important}
     .task-detail-actions button{min-width:0!important;padding-left:6px!important;padding-right:6px!important}
+    .fullscreen-back-button{display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;color:#176b4d;padding:4px 2px 10px;font-size:17px;font-weight:850;line-height:1;cursor:pointer}
+    .fullscreen-back-button span{font-size:15px}
 
     .visit-journal-list{gap:12px!important}
     .visit-journal-card{padding:15px!important;border-radius:16px!important}
