@@ -563,7 +563,13 @@ function ensureFourPTrtCardUi() {
       <div id="trt-fourp-details" class="fourp-trt-list"></div>
       <div id="trt-fourp-date" class="file-note"></div>
     </div>`;
-  tab.prepend(card);
+  const pointHeader = pointCardHeaderElement();
+  if (pointHeader?.parentElement) {
+    pointHeader.insertAdjacentElement('afterend', card);
+    card.classList.add('fourp-under-main-header');
+  } else {
+    tab.prepend(card);
+  }
 
   $('trt-fourp-toggle').addEventListener('click', () => {
     const wrap = $('trt-fourp-details-wrap');
@@ -585,11 +591,9 @@ function renderFourPTrtCard() {
   $('trt-fourp-total').textContent = fourPFormatScore(assessment?.totalScore);
   $('trt-fourp-stars').innerHTML = fourPStarsHtml(assessment?.totalScore);
 
-  const commercialText = hasAssessment
-    ? (assessment.promotion.commercialTermsScore == null
-      ? assessment.promotion.commercialTermsStatus
-      : fourPFormatScore(assessment.promotion.commercialTermsScore))
-    : FOUR_P_COMMERCIAL_STATUS;
+  const commercialText = assessment?.promotion?.commercialTermsScore == null
+    ? '—'
+    : fourPFormatScore(assessment.promotion.commercialTermsScore);
 
   const locationScore = assessment?.place?.locationScore;
   const placementScore = assessment?.place?.vogPlacementScore;
@@ -1026,19 +1030,12 @@ function ensureVisitWorkflowUi() {
     videoButton.innerHTML = '<svg viewBox="0 0 24 24"><path d="M3 5h13v14H3V5Zm15 4 4-3v12l-4-3V9Z"/></svg><span>Видео</span>';
   }
 
-  const title = $('visit-modal')?.querySelector('.modal-title');
-  if (title) title.id = 'visit-modal-title';
-
-  const visitSheet = $('visit-modal')?.querySelector('.modal-sheet');
-  if (visitSheet && !$('visit-modal-back-button')) {
-    const backButton = document.createElement('button');
-    backButton.id = 'visit-modal-back-button';
-    backButton.className = 'fullscreen-back-button';
-    backButton.type = 'button';
-    backButton.setAttribute('aria-label', 'Назад');
-    backButton.innerHTML = '← <span>Назад</span>';
-    title?.insertAdjacentElement('beforebegin', backButton);
-    backButton.addEventListener('click', closeModals);
+  const originalVisitTitle = $('visit-modal')?.querySelector('.modal-title');
+  if (originalVisitTitle && !$('visit-detail-header-host')) {
+    const host = document.createElement('div');
+    host.id = 'visit-detail-header-host';
+    originalVisitTitle.replaceWith(host);
+    mountMatchingCardHeader('visit', host, closeModals);
   }
 
   if (!$('screen-visits-journal')) {
@@ -2241,6 +2238,112 @@ function taskCardHtml(task, showPoint=true) {
   `;
 }
 
+
+function pointCardHeaderElement() {
+  const overlay = $('detail-overlay');
+  const title = $('detail-title');
+  const back = $('detail-close');
+  const locationButton = $('detail-location');
+  if (!overlay || !title || !back) return null;
+
+  let node = title.parentElement;
+  while (node && node !== overlay) {
+    if (
+      node.contains(back) &&
+      node.contains(title) &&
+      (!locationButton || node.contains(locationButton))
+    ) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
+function relatedTrtIdForCard(prefix) {
+  if (prefix === 'task') {
+    return tasks.find(item => String(item.id) === String(selectedTaskId))?.trtId || null;
+  }
+  if (prefix === 'visit') return selectedTrtId || null;
+  return null;
+}
+
+function openRelatedTrtOnMap(prefix, closeCard) {
+  const trtId = relatedTrtIdForCard(prefix);
+  const trt = trts.find(item => String(item.id) === String(trtId));
+  if (!trt) return;
+
+  if (typeof closeCard === 'function') closeCard();
+  switchScreen('map');
+
+  if (map) {
+    setTimeout(() => {
+      map.invalidateSize();
+      map.setView([trt.lat, trt.lon], 16);
+    }, 60);
+  } else {
+    showToast('Карта сейчас недоступна');
+  }
+}
+
+function createFallbackMatchingHeader(prefix) {
+  const header = document.createElement('div');
+  header.className = 'shared-fullscreen-card-header shared-fullscreen-card-header-fallback';
+  header.innerHTML = `
+    <button id="${prefix}-header-back" class="shared-card-header-button" type="button" aria-label="Назад">←</button>
+    <div class="shared-card-header-copy">
+      <div id="${prefix === 'task' ? 'task-detail-title' : 'visit-modal-title'}" class="shared-card-header-title"></div>
+      <div id="${prefix}-header-subtitle" class="shared-card-header-subtitle"></div>
+    </div>
+    <button id="${prefix}-header-location" class="shared-card-header-button" type="button" aria-label="Показать на карте">⌖</button>`;
+  return header;
+}
+
+function mountMatchingCardHeader(prefix, host, closeCard) {
+  if (!host) return null;
+
+  const source = pointCardHeaderElement();
+  const header = source
+    ? source.cloneNode(true)
+    : createFallbackMatchingHeader(prefix);
+
+  header.classList.add('shared-fullscreen-card-header');
+  header.id = `${prefix}-shared-card-header`;
+
+  if (source) {
+    const originalIds = Array.from(header.querySelectorAll('[id]'));
+    originalIds.forEach(element => {
+      const oldId = element.id;
+      if (oldId === 'detail-close') element.id = `${prefix}-header-back`;
+      else if (oldId === 'detail-title') {
+        element.id = prefix === 'task' ? 'task-detail-title' : 'visit-modal-title';
+      }
+      else if (oldId === 'detail-address') element.id = `${prefix}-header-subtitle`;
+      else if (oldId === 'detail-location') element.id = `${prefix}-header-location`;
+      else element.id = `${prefix}-${oldId}`;
+    });
+  }
+
+  host.replaceChildren(header);
+
+  $(`${prefix}-header-back`)?.addEventListener('click', closeCard);
+  $(`${prefix}-header-location`)?.addEventListener('click', () => {
+    openRelatedTrtOnMap(prefix, closeCard);
+  });
+
+  return header;
+}
+
+function updateMatchingCardHeader(prefix, titleText, subtitleText, hasTrt=true) {
+  const title = prefix === 'task' ? $('task-detail-title') : $('visit-modal-title');
+  const subtitle = $(`${prefix}-header-subtitle`);
+  const locationButton = $(`${prefix}-header-location`);
+
+  if (title) title.textContent = titleText || (prefix === 'task' ? 'Задача' : 'Визит');
+  if (subtitle) subtitle.textContent = subtitleText || '';
+  if (locationButton) locationButton.hidden = !hasTrt;
+}
+
 function ensureTaskDetailsUi() {
   if ($('task-detail-modal')) return;
 
@@ -2263,8 +2366,7 @@ function ensureTaskDetailsUi() {
     <div id="task-detail-modal" class="modal-backdrop">
       <div class="modal-sheet task-detail-sheet">
         <div class="modal-handle"></div>
-        <button id="task-detail-back-button" class="fullscreen-back-button" type="button" aria-label="Назад">← <span>Назад</span></button>
-        <h2 id="task-detail-title" class="modal-title">Задача</h2>
+        <div id="task-detail-header-host"></div>
         <div id="task-detail-summary" class="task-detail-summary"></div>
         <div class="field-group">
           <label class="field-label">Описание</label>
@@ -2309,7 +2411,7 @@ function ensureTaskDetailsUi() {
     </div>
   `);
 
-  $('task-detail-back-button').addEventListener('click', closeTaskDetails);
+  mountMatchingCardHeader('task', $('task-detail-header-host'), closeTaskDetails);
   $('task-detail-close-button').addEventListener('click', closeTaskDetails);
   $('task-detail-open-trt-button').addEventListener('click', () => {
     const task = tasks.find(item => String(item.id) === String(selectedTaskId));
@@ -2390,7 +2492,12 @@ function openTaskDetails(taskId, mode='view') {
   updateTaskCompletionFilesNote();
 
   const trt = trts.find(item => item.id === task.trtId);
-  $('task-detail-title').textContent = task.title || 'Задача';
+  updateMatchingCardHeader(
+    'task',
+    task.title || 'Задача',
+    [trt?.client || trt?.holding || 'ТРТ', trt?.address || ''].filter(Boolean).join(' · '),
+    Boolean(trt)
+  );
   $('task-detail-description').textContent = task.description || 'Описание не указано';
   $('task-detail-summary').innerHTML = `
     <div class="task-detail-box"><span>ТРТ</span><b>${escapeHtml(trt?.client || '—')}</b></div>
@@ -2613,7 +2720,7 @@ function ensureTrtWorkspaceUi() {
     #tab-info{padding-bottom:18px}
     .trt-work-actions{
       display:grid!important;
-      grid-template-columns:repeat(3,minmax(0,1fr))!important;
+      grid-template-columns:repeat(2,minmax(0,1fr))!important;
       gap:9px!important;
       margin-top:14px;
       width:100%!important;
@@ -2630,6 +2737,15 @@ function ensureTrtWorkspaceUi() {
       font-weight:800!important;
       line-height:1.1!important;
       white-space:nowrap;
+      border:1px solid #a8d5c2!important;
+      border-radius:13px!important;
+      background:#e7f3ee!important;
+      color:#176b4d!important;
+      box-shadow:0 1px 2px rgba(16,24,40,.05)!important;
+    }
+    .trt-work-actions button:active{
+      background:#d5eadf!important;
+      transform:translateY(1px);
     }
     .trt-archive-label{
       margin:18px 4px 9px;
@@ -2640,7 +2756,7 @@ function ensureTrtWorkspaceUi() {
     }
     .trt-archive-tabs{
       display:grid!important;
-      grid-template-columns:repeat(3,minmax(0,1fr))!important;
+      grid-template-columns:repeat(2,minmax(0,1fr))!important;
       gap:9px!important;
       overflow:visible!important;
       padding:0!important;
@@ -2681,8 +2797,33 @@ function ensureTrtWorkspaceUi() {
     .fourp-trt-toggle-score{display:flex;align-items:center;gap:7px;white-space:nowrap}
     .fourp-trt-toggle-score b{font-size:20px;font-weight:900}
     .fourp-trt-toggle-score .fourp-star{font-size:18px}
-    .fourp-trt-chevron{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:#667085;font-size:20px;transition:transform .16s ease}
-    .fourp-trt-chevron.open{transform:rotate(180deg)}
+    .fourp-trt-chevron{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:38px;
+      height:30px;
+      border-radius:10px;
+      background:#e7f3ee;
+      color:#176b4d;
+      font-size:28px;
+      font-weight:950;
+      line-height:1;
+      transform:scaleX(1.3);
+      transition:transform .18s ease,background .18s ease;
+    }
+    .fourp-trt-chevron.open{transform:rotate(180deg) scaleX(1.3);background:#d5eadf}
+    .fourp-under-main-header{margin:10px 14px 14px!important}
+    .trt-sales-value{
+      display:flex!important;
+      align-items:baseline!important;
+      justify-content:center!important;
+      gap:6px!important;
+      width:100%!important;
+      text-align:center!important;
+    }
+    .trt-sales-number{font-size:21px!important;font-weight:950!important;line-height:1.15}
+    .trt-sales-unit{font-size:15px!important;font-weight:750!important;color:#667085}
     .fourp-trt-details-wrap{padding:0 14px 13px;border-top:1px solid #eaecf0}
     .fourp-trt-line{font-size:13px!important;padding:10px 0!important}
     .task-actions{display:flex;flex-wrap:wrap;gap:7px}
@@ -2695,9 +2836,10 @@ function ensureTrtWorkspaceUi() {
   document.head.appendChild(style);
 
   dataButton.textContent = 'Данные';
+  dataButton.hidden = true;
+  dataButton.style.display = 'none';
   visitButton.textContent = 'Визит';
   taskButton.textContent = 'Задача';
-  dataButton.setAttribute('aria-label', 'Открыть основные данные ТРТ');
   visitButton.setAttribute('aria-label', 'Зафиксировать визит в ТРТ');
   taskButton.setAttribute('aria-label', 'Поставить задачу по ТРТ');
 
@@ -2720,7 +2862,11 @@ function ensureTrtWorkspaceUi() {
   const mediaTab = tabs.querySelector('[data-tab="media"]');
 
   if (infoTab) infoTab.remove();
-  if (salesTab) salesTab.classList.add('trt-hidden-sales-tab');
+  if (salesTab) {
+    salesTab.classList.remove('trt-hidden-sales-tab');
+    salesTab.textContent = 'Продажи';
+    salesTab.setAttribute('aria-label', 'Продажи ТРТ');
+  }
   if (visitsTab) visitsTab.textContent = 'Визиты';
   if (tasksTab) tasksTab.textContent = 'Задачи';
   if (mediaTab) {
@@ -2738,7 +2884,7 @@ function ensureTrtWorkspaceUi() {
   ensureFourPTrtCardUi();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v2.4';
+  if (version) version.textContent = 'v2.6';
 }
 
 function switchScreen(name) {
@@ -2780,9 +2926,17 @@ function renderSelectedTrt() {
   $('detail-direction').textContent = trt.direction || '—';
   $('detail-manager').textContent = shortPersonName(trt.manager) || '—';
   $('detail-format').textContent = trt.status || trt.trtStatus || '\u00a0';
-  $('detail-size').textContent = Number.isFinite(Number(trt.size))
-    ? `${Math.round(Number(trt.size)).toLocaleString('ru-RU')} ${trt.unit || ''}`.trim()
-    : '—';
+  const salesValue = $('detail-size');
+  if (salesValue) {
+    salesValue.classList.add('trt-sales-value');
+    if (Number.isFinite(Number(trt.size))) {
+      salesValue.innerHTML = `
+        <span class="trt-sales-number">${Math.round(Number(trt.size)).toLocaleString('ru-RU')}</span>
+        ${trt.unit ? `<span class="trt-sales-unit">${escapeHtml(trt.unit)}</span>` : ''}`;
+    } else {
+      salesValue.textContent = '—';
+    }
+  }
 
   renderFourPTrtCard();
 }
@@ -3090,8 +3244,13 @@ function openVisitModal(visitId=null, options={}) {
   editingVisitId = existing ? String(existing.id) : null;
   visitFiles = [];
 
-  const title = $('visit-modal-title') || $('visit-modal')?.querySelector('.modal-title');
-  if (title) title.textContent = readOnly ? 'Просмотр визита' : (existing ? 'Редактирование визита' : 'Новый визит');
+  const visitTrt = trts.find(item => String(item.id) === String(selectedTrtId));
+  updateMatchingCardHeader(
+    'visit',
+    readOnly ? 'Просмотр визита' : (existing ? 'Редактирование визита' : 'Новый визит'),
+    [visitTrt?.client || visitTrt?.holding || 'ТРТ', visitTrt?.address || ''].filter(Boolean).join(' · '),
+    Boolean(visitTrt)
+  );
 
   const saveButton = $('save-visit-button');
   if (saveButton) {
@@ -3155,7 +3314,7 @@ function setVisitModalReadOnly(readOnly) {
     if (!Object.prototype.hasOwnProperty.call(element.dataset, 'originalDisabled')) {
       element.dataset.originalDisabled = element.disabled ? '1' : '0';
     }
-    const isClose = element.classList.contains('modal-cancel') || element.id === 'visit-modal-back-button';
+    const isClose = element.classList.contains('modal-cancel') || element.id === 'visit-header-back' || element.id === 'visit-header-location';
     element.disabled = readOnly ? !isClose : element.dataset.originalDisabled === '1';
   });
 
@@ -3697,8 +3856,12 @@ function ensureJournalAndAuthUi() {
     .task-journal-manager{margin-top:10px;font-size:14px;font-weight:750;color:#667085}
     .task-detail-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important}
     .task-detail-actions button{min-width:0!important;padding-left:6px!important;padding-right:6px!important}
-    .fullscreen-back-button{display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;color:#176b4d;padding:4px 2px 10px;font-size:17px;font-weight:850;line-height:1;cursor:pointer}
-    .fullscreen-back-button span{font-size:15px}
+    .shared-fullscreen-card-header{width:100%;box-sizing:border-box}
+    .shared-fullscreen-card-header-fallback{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:8px;align-items:center;padding:2px 0 13px;border-bottom:1px solid #eaecf0;margin-bottom:14px}
+    .shared-card-header-button{width:42px;height:42px;border:0;border-radius:12px;background:#f2f4f7;color:#176b4d;font-size:24px;font-weight:900}
+    .shared-card-header-copy{min-width:0;text-align:left}
+    .shared-card-header-title{font-size:19px;font-weight:900;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .shared-card-header-subtitle{margin-top:3px;color:#667085;font-size:12px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
     .visit-journal-list{gap:12px!important}
     .visit-journal-card{padding:15px!important;border-radius:16px!important}
@@ -3711,10 +3874,23 @@ function ensureJournalAndAuthUi() {
 
     #task-detail-modal,#visit-modal{display:flex!important;visibility:hidden;opacity:0;pointer-events:none;align-items:stretch!important;justify-content:flex-start!important;padding:0!important;background:rgba(15,23,42,.25)!important;transition:opacity .2s ease,visibility .2s ease}
     #task-detail-modal.open,#visit-modal.open{visibility:visible;opacity:1;pointer-events:auto}
-    #task-detail-modal .modal-sheet,#visit-modal .modal-sheet{width:100vw!important;max-width:none!important;height:100dvh!important;max-height:none!important;margin:0!important;border-radius:0!important;overflow:auto!important;padding:calc(14px + env(safe-area-inset-top)) 16px calc(22px + env(safe-area-inset-bottom))!important;box-sizing:border-box!important;transform:translateX(100%);transition:transform .24s ease;box-shadow:none!important}
+    #task-detail-modal .modal-sheet,#visit-modal .modal-sheet{
+      width:100vw!important;
+      max-width:none!important;
+      height:100dvh!important;
+      max-height:none!important;
+      margin:0!important;
+      border-radius:0!important;
+      overflow:auto!important;
+      padding:calc(14px + env(safe-area-inset-top)) 16px calc(22px + env(safe-area-inset-bottom))!important;
+      box-sizing:border-box!important;
+      transform:translateX(-100%);
+      transition:transform .3s cubic-bezier(.22,.61,.36,1);
+      box-shadow:none!important;
+      will-change:transform;
+    }
     #task-detail-modal.open .modal-sheet,#visit-modal.open .modal-sheet{transform:translateX(0)}
     #task-detail-modal .modal-handle,#visit-modal .modal-handle{display:none!important}
-    #task-detail-modal .modal-title,#visit-modal .modal-title{font-size:22px!important;padding-right:42px}
     #visit-modal.visit-readonly textarea,#visit-modal.visit-readonly input,#visit-modal.visit-readonly select{background:#f5f7fa!important;color:#344054!important;opacity:1!important}
     .visit-edit-notice.readonly{background:#fff1f0!important;color:#b42318!important}
   `;
