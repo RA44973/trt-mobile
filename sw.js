@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trt-mobile-v2-1-visit-journal-edit-results';
+const CACHE_NAME = 'trt-mobile-v2-3-rating-prefill-trt-layout';
 const SHELL = [
   './',
   './index.html',

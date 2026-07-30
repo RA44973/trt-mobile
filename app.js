@@ -551,13 +551,29 @@ function ensureFourPTrtCardUi() {
   card.id = 'trt-fourp-mobile-card';
   card.className = 'card fourp-trt-card';
   card.innerHTML = `
-    <h3 class="card-title"><span>Рейтинг ТРТ</span><span class="fourp-trt-total-display"><b id="trt-fourp-total">0,0</b><span id="trt-fourp-stars">${fourPStarsHtml(0)}</span></span></h3>
-    <div id="trt-fourp-empty" class="file-note">Рейтинг ещё не заполнен. Внесите данные во время визита.</div>
-    <div id="trt-fourp-content" hidden>
+    <button id="trt-fourp-toggle" class="fourp-trt-toggle" type="button" aria-expanded="false">
+      <span class="fourp-trt-toggle-title">Рейтинг ТРТ</span>
+      <span class="fourp-trt-toggle-score">
+        <b id="trt-fourp-total">0,0</b>
+        <span id="trt-fourp-stars">${fourPStarsHtml(0)}</span>
+        <span id="trt-fourp-chevron" class="fourp-trt-chevron">⌄</span>
+      </span>
+    </button>
+    <div id="trt-fourp-details-wrap" class="fourp-trt-details-wrap" hidden>
       <div id="trt-fourp-details" class="fourp-trt-list"></div>
       <div id="trt-fourp-date" class="file-note"></div>
     </div>`;
   tab.prepend(card);
+
+  $('trt-fourp-toggle').addEventListener('click', () => {
+    const wrap = $('trt-fourp-details-wrap');
+    const toggle = $('trt-fourp-toggle');
+    const chevron = $('trt-fourp-chevron');
+    const willOpen = Boolean(wrap?.hidden);
+    if (wrap) wrap.hidden = !willOpen;
+    toggle?.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    chevron?.classList.toggle('open', willOpen);
+  });
 }
 
 function renderFourPTrtCard() {
@@ -566,24 +582,45 @@ function renderFourPTrtCard() {
   const assessment = normalizeFourPAssessment(visit?.fourP);
   const hasAssessment = Boolean(assessment?.complete);
 
-  $('trt-fourp-empty').hidden = hasAssessment;
-  $('trt-fourp-content').hidden = !hasAssessment;
   $('trt-fourp-total').textContent = fourPFormatScore(assessment?.totalScore);
   $('trt-fourp-stars').innerHTML = fourPStarsHtml(assessment?.totalScore);
-  if (!hasAssessment) return;
 
-  const commercialText = assessment.promotion.commercialTermsScore == null
-    ? assessment.promotion.commercialTermsStatus
-    : fourPFormatScore(assessment.promotion.commercialTermsScore);
+  const commercialText = hasAssessment
+    ? (assessment.promotion.commercialTermsScore == null
+      ? assessment.promotion.commercialTermsStatus
+      : fourPFormatScore(assessment.promotion.commercialTermsScore))
+    : FOUR_P_COMMERCIAL_STATUS;
+
+  const locationScore = assessment?.place?.locationScore;
+  const placementScore = assessment?.place?.vogPlacementScore;
+  const skuCount = assessment?.product?.skuCount;
+  const assortmentScore = assessment?.product?.assortmentScore;
+  const vogSkuCount = assessment?.product?.vogSkuCount;
+  const vogShare = assessment?.product?.vogSharePercent;
+  const vogShareScore = assessment?.product?.vogShareScore;
+  const sellerCount = assessment?.promotion?.sellerCount;
+  const participants = assessment?.promotion?.vogClubParticipants;
+  const motivationScore = assessment?.promotion?.sellerMotivationScore;
+  const displayScore = assessment?.promotion?.consumerPromoScore;
+
   $('trt-fourp-details').innerHTML = `
-    <div class="fourp-trt-line"><span>Местоположение ТРТ</span><b>${fourPFormatScore(assessment.place.locationScore)}</b></div>
-    <div class="fourp-trt-line"><span>Местоположение ВОГ внутри ТРТ</span><b>${fourPFormatScore(assessment.place.vogPlacementScore)}</b></div>
-    <div class="fourp-trt-line"><span>Ассортимент</span><b>${Number(assessment.product.skuCount).toLocaleString('ru-RU')} SKU · ${fourPFormatScore(assessment.product.assortmentScore)}</b></div>
-    <div class="fourp-trt-line"><span>SKU от ВОГ в ассортименте ТРТ</span><b>${assessment.product.vogSkuCount == null ? '—' : Number(assessment.product.vogSkuCount).toLocaleString('ru-RU')} SKU · ${String(assessment.product.vogSharePercent ?? 0).replace('.', ',')}% · ${fourPFormatScore(assessment.product.vogShareScore)}</b></div>
+    <div class="fourp-trt-line"><span>Местоположение ТРТ</span><b>${fourPFormatScore(locationScore)}</b></div>
+    <div class="fourp-trt-line"><span>Местоположение ВОГ внутри ТРТ</span><b>${fourPFormatScore(placementScore)}</b></div>
+    <div class="fourp-trt-line"><span>Общее количество SKU в ТРТ</span><b>${skuCount == null ? '—' : `${Number(skuCount).toLocaleString('ru-RU')} SKU · ${fourPFormatScore(assortmentScore)}`}</b></div>
+    <div class="fourp-trt-line"><span>SKU от ВОГ в ассортименте ТРТ</span><b>${vogSkuCount == null ? '—' : `${Number(vogSkuCount).toLocaleString('ru-RU')} SKU · ${String(vogShare ?? 0).replace('.', ',')}% · ${fourPFormatScore(vogShareScore)}`}</b></div>
     <div class="fourp-trt-line"><span>Коммерческие условия</span><b>${escapeHtml(commercialText)}</b></div>
-    <div class="fourp-trt-line"><span>Мотивация</span><b>${assessment.promotion.sellerCount == null ? fourPFormatScore(assessment.promotion.sellerMotivationScore) : `${assessment.promotion.vogClubParticipants ?? 0}/${assessment.promotion.sellerCount} · ${fourPFormatScore(assessment.promotion.sellerMotivationScore)}`}</b></div>
-    <div class="fourp-trt-line"><span>Качество выставки ВОГ</span><b>${fourPFormatScore(assessment.promotion.consumerPromoScore)}</b></div>`;
-  $('trt-fourp-date').textContent = `Последняя оценка: ${formatDateTime(visit.createdAt)}`;
+    <div class="fourp-trt-line"><span>Мотивация</span><b>${sellerCount == null ? fourPFormatScore(motivationScore) : `${participants ?? 0}/${sellerCount} · ${fourPFormatScore(motivationScore)}`}</b></div>
+    <div class="fourp-trt-line"><span>Качество выставки ВОГ</span><b>${fourPFormatScore(displayScore)}</b></div>`;
+  $('trt-fourp-date').textContent = hasAssessment
+    ? `Последняя оценка: ${formatDateTime(visit.createdAt)}`
+    : 'Рейтинг ещё не заполнен';
+
+  const wrap = $('trt-fourp-details-wrap');
+  const toggle = $('trt-fourp-toggle');
+  const chevron = $('trt-fourp-chevron');
+  if (wrap) wrap.hidden = true;
+  toggle?.setAttribute('aria-expanded', 'false');
+  chevron?.classList.remove('open');
 }
 
 function fourPVisitTimelineHtml(visit) {
@@ -699,6 +736,23 @@ function collectVisitResults() {
   };
 }
 
+function visitVoiceIdleHtml() {
+  return `<svg class="visit-microphone-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm-5-3a1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V21H8a1 1 0 1 0 0 2h8a1 1 0 1 0 0-2h-3v-3.08A7 7 0 0 0 19 11a1 1 0 1 0-2 0 5 5 0 0 1-10 0Z"/></svg>`;
+}
+
+function visitVoiceListeningHtml() {
+  return `<span class="visit-voice-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>`;
+}
+
+function setVisitVoiceButtonState(listening) {
+  const button = $('visit-voice-button');
+  if (!button) return;
+  button.classList.toggle('listening', Boolean(listening));
+  button.innerHTML = listening ? visitVoiceListeningHtml() : visitVoiceIdleHtml();
+  button.title = listening ? 'Идёт распознавание речи' : 'Голосовой ввод';
+  button.setAttribute('aria-label', button.title);
+}
+
 function startVisitVoiceInput() {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const button = $('visit-voice-button');
@@ -722,10 +776,7 @@ function startVisitVoiceInput() {
 
   let finalText = '';
 
-  recognition.onstart = () => {
-    button?.classList.add('listening');
-    if (button) button.textContent = 'Слушаю…';
-  };
+  recognition.onstart = () => setVisitVoiceButtonState(true);
 
   recognition.onresult = event => {
     let interim = '';
@@ -738,9 +789,7 @@ function startVisitVoiceInput() {
   };
 
   recognition.onerror = event => {
-    if (event.error !== 'aborted') {
-      showToast('Не удалось распознать речь');
-    }
+    if (event.error !== 'aborted') showToast('Не удалось распознать речь');
   };
 
   recognition.onend = () => {
@@ -750,11 +799,7 @@ function startVisitVoiceInput() {
       textarea.value = current ? `${current} ${recognized}` : recognized;
       textarea.dispatchEvent(new Event('input', {bubbles:true}));
     }
-    button?.classList.remove('listening');
-    if (button) {
-      button.textContent = '🎙';
-      button.title = 'Голосовой ввод';
-    }
+    setVisitVoiceButtonState(false);
     visitVoiceRecognition = null;
   };
 
@@ -762,8 +807,7 @@ function startVisitVoiceInput() {
     recognition.start();
   } catch (_) {
     visitVoiceRecognition = null;
-    button?.classList.remove('listening');
-    if (button) button.textContent = '🎙';
+    setVisitVoiceButtonState(false);
   }
 }
 
@@ -812,7 +856,6 @@ function renderVisitJournal() {
       point?.address,
       visitResultSummary(visit),
       visit.comment,
-      visit.nextStep,
     ].join(' ')).includes(query);
   });
 
@@ -844,18 +887,22 @@ function ensureVisitWorkflowUi() {
   style.id = 'visit-workflow-style';
   style.textContent = `
     .bottom-nav{grid-template-columns:repeat(5,1fr)!important}
-    .visit-result-trigger{width:100%;min-height:48px;border:1px solid #d0d5dd;border-radius:12px;padding:8px 38px 8px 11px;background:#fff;color:#17202a;text-align:left;position:relative}
+    .visit-result-trigger{width:100%;min-height:56px;border:1px solid #d0d5dd;border-radius:12px;padding:10px 40px 10px 12px;background:#fff;color:#17202a;text-align:left;position:relative;line-height:1.35}
     .visit-result-trigger::after{content:'⌄';position:absolute;right:13px;top:50%;transform:translateY(-50%);color:#667085;font-size:18px}
     .visit-result-trigger.empty{color:#98a2b3}
-    .visit-result-trigger span{display:inline-flex;margin:2px 4px 2px 0;padding:5px 7px;border-radius:8px;background:#f2f4f7;color:#344054;font-size:12px;font-weight:750}
-    .visit-result-trigger.empty span{padding:0;background:transparent;color:#98a2b3;font-size:14px;font-weight:500}
+    .visit-result-trigger span{display:inline-flex;margin:2px 4px 2px 0;padding:6px 8px;border-radius:8px;background:#f2f4f7;color:#344054;font-size:13px;font-weight:750}
+    .visit-result-trigger.empty span{padding:0;background:transparent;color:#98a2b3;font-size:15px;font-weight:500}
     .visit-result-option{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid #eaecf0;color:#17202a;font-weight:700}
     .visit-result-option input{width:20px;height:20px;margin:0;accent-color:#176b4d}
     .visit-result-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
     .visit-label-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
-    .visit-voice-button{width:42px;height:34px;border:1px solid #b8d4a8;border-radius:10px;background:#fff;color:#176b4d;font-size:18px;font-weight:800}
-    .visit-voice-button.listening{background:#e7f3ee;animation:visitPulse 1s infinite alternate}
-    @keyframes visitPulse{from{box-shadow:0 0 0 0 rgba(23,107,77,.15)}to{box-shadow:0 0 0 7px rgba(23,107,77,0)}}
+    .visit-voice-button{width:46px;height:38px;border:1px solid #b8d4a8;border-radius:10px;background:#fff;color:#176b4d;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden}
+    .visit-microphone-icon{width:21px;height:21px;fill:currentColor}
+    .visit-voice-button.listening{background:#e7f3ee;box-shadow:0 0 0 4px rgba(23,107,77,.08)}
+    .visit-voice-wave{height:22px;display:flex;align-items:center;justify-content:center;gap:3px}
+    .visit-voice-wave i{display:block;width:3px;height:7px;border-radius:3px;background:#176b4d;animation:visitWave .72s ease-in-out infinite}
+    .visit-voice-wave i:nth-child(2){animation-delay:.10s}.visit-voice-wave i:nth-child(3){animation-delay:.20s}.visit-voice-wave i:nth-child(4){animation-delay:.30s}.visit-voice-wave i:nth-child(5){animation-delay:.40s}
+    @keyframes visitWave{0%,100%{height:6px;opacity:.55}50%{height:22px;opacity:1}}
     .visit-media-button-row{display:grid!important;grid-template-columns:1fr 1fr;gap:12px}
     .visit-media-button{min-height:92px!important;border:2px solid #b8d4a8!important;border-radius:16px!important;background:#f8fff9!important;color:#176b4d!important;font-size:16px!important;display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px}
     .visit-media-button svg{width:30px;height:30px;fill:currentColor}
@@ -933,6 +980,14 @@ function ensureVisitWorkflowUi() {
     });
   }
 
+  const nextStep = $('visit-next-step');
+  if (nextStep) {
+    nextStep.value = '';
+    const nextStepGroup = nextStep.closest('.field-group');
+    if (nextStepGroup) nextStepGroup.hidden = true;
+    else nextStep.hidden = true;
+  }
+
   const comment = $('visit-comment');
   const commentGroup = comment?.closest('.field-group');
   const commentLabel = commentGroup?.querySelector('.field-label');
@@ -945,8 +1000,9 @@ function ensureVisitWorkflowUi() {
     voice.id = 'visit-voice-button';
     voice.type = 'button';
     voice.className = 'visit-voice-button';
-    voice.textContent = '🎙';
+    voice.innerHTML = visitVoiceIdleHtml();
     voice.title = 'Голосовой ввод';
+    voice.setAttribute('aria-label', 'Голосовой ввод');
     row.appendChild(voice);
     voice.addEventListener('click', startVisitVoiceInput);
   }
@@ -2465,6 +2521,60 @@ function renderAll() {
   }
 }
 
+function shortPersonName(value) {
+  const parts = String(value || '').trim().split(/\s+/).filter(Boolean);
+  return parts.slice(0, 2).join(' ');
+}
+
+function replaceTrtInfoLabel(root, oldText, newText) {
+  if (!root) return;
+  root.querySelectorAll('label,span,dt,div').forEach(element => {
+    if (element.children.length) return;
+    if (String(element.textContent || '').trim().toLowerCase() === oldText.toLowerCase()) {
+      element.textContent = newText;
+    }
+  });
+}
+
+function configureTrtInfoUi() {
+  const tab = $('tab-info');
+  if (!tab) return;
+
+  tab.querySelectorAll('h2,h3,.card-title').forEach(element => {
+    const title = String(element.textContent || '').trim().toLowerCase();
+    if (title === 'общая информация' || title === 'дополнительная информация' || title === 'карточка трт') {
+      element.hidden = true;
+    }
+  });
+
+  replaceTrtInfoLabel(tab, 'Формат', 'Статус ТРТ');
+
+  ['detail-direction','detail-manager','detail-format','detail-size'].forEach(id => {
+    const value = $(id);
+    if (!value) return;
+    value.classList.add('trt-primary-value');
+    value.parentElement?.classList.add('trt-primary-field');
+  });
+
+  const customIds = [
+    'edit-contact','edit-phone','edit-actual-size','edit-stands',
+    'edit-potential','edit-brands','edit-notes'
+  ];
+  customIds.forEach(id => {
+    const field = $(id);
+    const group = field?.closest('.field-group');
+    if (group) group.hidden = true;
+    else if (field) field.hidden = true;
+  });
+
+  const saveButton = $('save-trt-button');
+  if (saveButton) {
+    const customCard = saveButton.closest('.card');
+    if (customCard && !customCard.querySelector('#detail-direction')) customCard.hidden = true;
+    else saveButton.hidden = true;
+  }
+}
+
 function ensureTrtWorkspaceUi() {
   if (document.body.dataset.trtWorkspaceUi === '1') return;
 
@@ -2480,53 +2590,59 @@ function ensureTrtWorkspaceUi() {
   const style = document.createElement('style');
   style.id = 'trt-workspace-style';
   style.textContent = `
+    #tab-info{padding-bottom:18px}
     .trt-work-actions{
       display:grid!important;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:8px!important;
-      margin-top:12px;
+      grid-template-columns:repeat(3,minmax(0,1fr))!important;
+      gap:9px!important;
+      margin-top:14px;
+      width:100%!important;
     }
     .trt-work-actions button{
-      width:100%;
-      min-width:0;
-      min-height:44px;
-      padding:10px 5px!important;
-      font-size:14px!important;
-      font-weight:750!important;
+      display:flex!important;
+      align-items:center!important;
+      justify-content:center!important;
+      width:100%!important;
+      min-width:0!important;
+      min-height:50px!important;
+      padding:11px 4px!important;
+      font-size:15px!important;
+      font-weight:800!important;
+      line-height:1.1!important;
       white-space:nowrap;
     }
     .trt-archive-label{
-      margin:15px 4px 7px;
-      color:#98a2b3;
-      font-size:11px;
-      font-weight:650;
-      letter-spacing:.04em;
+      margin:18px 4px 9px;
+      color:#667085;
+      font-size:14px;
+      font-weight:800;
+      letter-spacing:.03em;
     }
     .trt-archive-tabs{
       display:grid!important;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:7px!important;
+      grid-template-columns:repeat(3,minmax(0,1fr))!important;
+      gap:9px!important;
       overflow:visible!important;
       padding:0!important;
-      margin:0 0 12px!important;
+      margin:0 0 14px!important;
       border:0!important;
       background:transparent!important;
     }
     .trt-archive-tabs .tab-button{
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      width:100%;
-      min-width:0;
-      min-height:44px;
-      padding:9px 3px!important;
+      display:flex!important;
+      align-items:center!important;
+      justify-content:center!important;
+      width:100%!important;
+      min-width:0!important;
+      min-height:50px!important;
+      padding:11px 3px!important;
       border:1px solid #d0d5dd!important;
-      border-radius:11px!important;
+      border-radius:12px!important;
       background:#fff!important;
       color:#344054!important;
-      font-size:13px!important;
-      font-weight:750!important;
-      line-height:1.15;
+      font-size:15px!important;
+      font-weight:800!important;
+      line-height:1.1!important;
       white-space:nowrap;
       box-shadow:0 1px 2px rgba(16,24,40,.05);
     }
@@ -2536,19 +2652,24 @@ function ensureTrtWorkspaceUi() {
       color:#fff!important;
       box-shadow:0 2px 5px rgba(23,107,77,.18);
     }
-    .trt-archive-tabs .trt-hidden-sales-tab{display:none!important}
-    .task-actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:7px;
-    }
-    .task-actions button{
-      min-height:38px;
-      font-weight:700;
-    }
+    .trt-hidden-sales-tab{display:none!important}
+    .trt-primary-field{padding-top:3px;padding-bottom:3px}
+    .trt-primary-value{font-size:18px!important;font-weight:850!important;line-height:1.3!important;min-height:24px}
+    .fourp-trt-card{padding:0!important;overflow:hidden;margin-bottom:14px!important}
+    .fourp-trt-toggle{width:100%;min-height:58px;border:0;background:#fff;color:#17202a;padding:13px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left}
+    .fourp-trt-toggle-title{font-size:17px;font-weight:900}
+    .fourp-trt-toggle-score{display:flex;align-items:center;gap:7px;white-space:nowrap}
+    .fourp-trt-toggle-score b{font-size:20px;font-weight:900}
+    .fourp-trt-toggle-score .fourp-star{font-size:18px}
+    .fourp-trt-chevron{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;color:#667085;font-size:20px;transition:transform .16s ease}
+    .fourp-trt-chevron.open{transform:rotate(180deg)}
+    .fourp-trt-details-wrap{padding:0 14px 13px;border-top:1px solid #eaecf0}
+    .fourp-trt-line{font-size:13px!important;padding:10px 0!important}
+    .task-actions{display:flex;flex-wrap:wrap;gap:7px}
+    .task-actions button{min-height:38px;font-weight:700}
     @media (max-width:360px){
-      .trt-work-actions button{font-size:13px!important}
-      .trt-archive-tabs .tab-button{font-size:12px!important}
+      .trt-work-actions button,.trt-archive-tabs .tab-button{font-size:14px!important}
+      .fourp-trt-toggle-score .fourp-star{font-size:16px}
     }
   `;
   document.head.appendChild(style);
@@ -2556,12 +2677,12 @@ function ensureTrtWorkspaceUi() {
   dataButton.textContent = 'Данные';
   visitButton.textContent = 'Визит';
   taskButton.textContent = 'Задача';
-  dataButton.setAttribute('aria-label', 'Открыть данные и продажи ТРТ');
+  dataButton.setAttribute('aria-label', 'Открыть основные данные ТРТ');
   visitButton.setAttribute('aria-label', 'Зафиксировать визит в ТРТ');
   taskButton.setAttribute('aria-label', 'Поставить задачу по ТРТ');
 
   actions.classList.add('trt-work-actions');
-  actions.append(dataButton, visitButton, taskButton);
+  actions.append(visitButton, taskButton, dataButton);
 
   let archiveLabel = $('trt-archive-label');
   if (!archiveLabel) {
@@ -2578,28 +2699,26 @@ function ensureTrtWorkspaceUi() {
   const tasksTab = tabs.querySelector('[data-tab="tasks"]');
   const mediaTab = tabs.querySelector('[data-tab="media"]');
 
-  if (infoTab) {
-    infoTab.textContent = 'Карточка';
-    infoTab.setAttribute('aria-label', 'Карточка ТРТ');
-  }
+  if (infoTab) infoTab.remove();
+  if (salesTab) salesTab.classList.add('trt-hidden-sales-tab');
   if (visitsTab) visitsTab.textContent = 'Визиты';
   if (tasksTab) tasksTab.textContent = 'Задачи';
   if (mediaTab) {
     mediaTab.textContent = 'Фото';
     mediaTab.setAttribute('aria-label', 'Фото и видео ТРТ');
   }
-  if (salesTab) salesTab.classList.add('trt-hidden-sales-tab');
 
   tabs.classList.add('trt-archive-tabs');
-  [infoTab, visitsTab, tasksTab, mediaTab, salesTab].forEach(tab => {
+  [visitsTab, tasksTab, mediaTab, salesTab].forEach(tab => {
     if (tab) tabs.appendChild(tab);
   });
 
+  configureTrtInfoUi();
   ensureFourPVisitUi();
   ensureFourPTrtCardUi();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v1.9';
+  if (version) version.textContent = 'v2.3';
 }
 
 function switchScreen(name) {
@@ -2634,23 +2753,17 @@ function closeTrt() {
 function renderSelectedTrt() {
   const trt = selectedTrt();
   if (!trt) return;
-  const custom = trt.custom || {};
+
+  configureTrtInfoUi();
   $('detail-title').textContent = trt.client || trt.holding || 'ТРТ';
   $('detail-address').textContent = trt.address || '';
   $('detail-direction').textContent = trt.direction || '—';
-  $('detail-manager').textContent = trt.manager || '—';
-  $('detail-format').textContent = trt.format || '—';
+  $('detail-manager').textContent = shortPersonName(trt.manager) || '—';
+  $('detail-format').textContent = trt.status || trt.trtStatus || '\u00a0';
   $('detail-size').textContent = Number.isFinite(Number(trt.size))
     ? `${Math.round(Number(trt.size)).toLocaleString('ru-RU')} ${trt.unit || ''}`.trim()
     : '—';
 
-  $('edit-contact').value = custom.contact || '';
-  $('edit-phone').value = custom.phone || '';
-  $('edit-actual-size').value = custom.actualSize ?? '';
-  $('edit-stands').value = custom.stands ?? '';
-  $('edit-potential').value = custom.potential || '';
-  $('edit-brands').value = custom.brands || '';
-  $('edit-notes').value = custom.notes || '';
   renderFourPTrtCard();
 }
 
@@ -2659,13 +2772,13 @@ async function saveSelectedTrt() {
   if (!trt) return;
   trt.custom = {
     ...(trt.custom || {}),
-    contact:$('edit-contact').value.trim(),
-    phone:$('edit-phone').value.trim(),
-    actualSize:$('edit-actual-size').value === '' ? null : Math.round(Number($('edit-actual-size').value)),
-    stands:$('edit-stands').value === '' ? null : Math.round(Number($('edit-stands').value)),
-    potential:$('edit-potential').value,
-    brands:$('edit-brands').value.trim(),
-    notes:$('edit-notes').value.trim(),
+    contact:$('edit-contact')?.value.trim() || '',
+    phone:$('edit-phone')?.value.trim() || '',
+    actualSize:$('edit-actual-size')?.value === '' || !$('edit-actual-size') ? null : Math.round(Number($('edit-actual-size').value)),
+    stands:$('edit-stands')?.value === '' || !$('edit-stands') ? null : Math.round(Number($('edit-stands').value)),
+    potential:$('edit-potential')?.value || '',
+    brands:$('edit-brands')?.value.trim() || '',
+    notes:$('edit-notes')?.value.trim() || '',
     updatedAt:new Date().toISOString()
   };
   await putItem(STORE_TRTS, trt);
@@ -2821,7 +2934,6 @@ function renderVisits() {
         <div class="timeline-date">${escapeHtml(formatDateTime(item.createdAt))}${item.distanceKm != null ? ` · ${item.distanceKm.toFixed(2)} км от точки` : ''}</div>
         <div class="timeline-title">${escapeHtml(visitResultSummary(item))}</div>
         ${fourPVisitTimelineHtml(item)}
-        ${item.nextStep ? `<div class="timeline-text"><b>Следующий шаг:</b> ${escapeHtml(item.nextStep)}</div>` : ''}
         ${item.comment ? `<div class="timeline-text">${escapeHtml(item.comment)}</div>` : ''}
         <div class="timeline-text"><b>${isVisitEditableToday(item) ? 'Нажмите, чтобы исправить визит сегодня' : 'Визит завершён'}</b></div>
       </button>
@@ -2972,7 +3084,7 @@ function openVisitModal(visitId=null) {
   if (existing) {
     const resultData = normalizedVisitResults(existing);
     setVisitResultSelection(resultData.items, resultData.other);
-    $('visit-next-step').value = existing.nextStep || '';
+    if ($('visit-next-step')) $('visit-next-step').value = '';
     $('visit-comment').value = existing.comment || '';
     populateFourPVisitForm(existing.fourP);
 
@@ -2982,9 +3094,15 @@ function openVisitModal(visitId=null) {
       : 'Можно добавить фото или видео';
   } else {
     setVisitResultSelection([], '');
-    $('visit-next-step').value = '';
+    if ($('visit-next-step')) $('visit-next-step').value = '';
     $('visit-comment').value = '';
-    resetFourPVisitForm();
+    const previousRatingVisit = latestFourPVisitForTrt(selectedTrtId);
+    if (previousRatingVisit) {
+      populateFourPVisitForm(previousRatingVisit.fourP);
+      showToast('Рейтинг подтянут из прошлого визита — все поля можно изменить');
+    } else {
+      resetFourPVisitForm();
+    }
     $('visit-files-note').textContent = 'Файлы не выбраны';
   }
 
@@ -3102,7 +3220,7 @@ async function saveVisit() {
         result:resultData.result,
         results:resultData.items,
         otherResult:resultData.otherResult,
-        nextStep:$('visit-next-step').value.trim(),
+        nextStep:'',
         comment:$('visit-comment').value.trim(),
         fourP,
         updatedAt:new Date().toISOString(),
@@ -3116,7 +3234,7 @@ async function saveVisit() {
         result:resultData.result,
         results:resultData.items,
         otherResult:resultData.otherResult,
-        nextStep:$('visit-next-step').value.trim(),
+        nextStep:'',
         comment:$('visit-comment').value.trim(),
         fourP,
         latitude:null,
@@ -3436,7 +3554,7 @@ function bindEvents() {
   $('save-trt-button').addEventListener('click', saveSelectedTrt);
   $('start-visit-button').addEventListener('click', () => openVisitModal());
   $('new-task-button').addEventListener('click', openTaskModal);
-  $('open-sales-button').addEventListener('click', () => setDetailTab('sales'));
+  $('open-sales-button').addEventListener('click', () => setDetailTab('info'));
   $('save-visit-button').addEventListener('click', saveVisit);
   $('save-task-button').addEventListener('click', saveTask);
 
