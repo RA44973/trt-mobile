@@ -2,6 +2,37 @@
 'use strict';
 
 const DB_NAME = 'trt-mobile-db';
+
+const PRODUCT_NAME = 'VOG Мобильный помощник';
+const PRODUCT_SHORT_NAME = 'VOG Помощник';
+
+function applyProductBranding() {
+  document.title = PRODUCT_NAME;
+
+  const appleTitle = document.querySelector(
+    'meta[name="apple-mobile-web-app-title"]'
+  );
+  if (appleTitle) appleTitle.content = PRODUCT_SHORT_NAME;
+
+  const authLogo = document.querySelector('.auth-logo');
+  if (authLogo) authLogo.textContent = 'VOG';
+
+  const authTitle = document.querySelector('.auth-card h1');
+  if (authTitle) authTitle.textContent = 'Мобильный помощник';
+
+  const topbarTitle = document.querySelector('.topbar-title');
+  if (topbarTitle) {
+    const version = topbarTitle.querySelector('span');
+    topbarTitle.textContent = 'VOG ';
+    if (version) topbarTitle.appendChild(version);
+  }
+
+  const topbarSubtitle = $('topbar-subtitle');
+  if (topbarSubtitle && !trts.length) {
+    topbarSubtitle.textContent = 'Мобильный помощник';
+  }
+}
+
 const DB_VERSION = 1;
 const STORE_TRTS = 'trts';
 const STORE_VISITS = 'visits';
@@ -1285,7 +1316,7 @@ async function handleLogin(event) {
       body:{
         login,
         password,
-        device_name:`ТРТ PWA · ${navigator.platform || 'устройство'}`
+        device_name:`VOG Мобильный помощник · ${navigator.platform || 'устройство'}`
       }
     });
 
@@ -2828,7 +2859,7 @@ function renderStats() {
   $('stat-visits').textContent = visits.length;
   $('stat-tasks').textContent = tasks.length;
   $('stat-media').textContent = mediaItems.length;
-  $('topbar-subtitle').textContent = trts.length ? `${trts.length} ТРТ · ${tasks.filter(t => t.status !== 'done').length} открытых задач` : 'Мобильный помощник';
+  $('topbar-subtitle').textContent = trts.length ? `${trts.length} ТРТ · ${tasks.filter(t => t.status !== 'done').length} открытых задач` : 'VOG Мобильный помощник';
   updateAccountUi();
 }
 
@@ -4155,7 +4186,7 @@ function ensureJournalAndAuthUi() {
   if (!bootstrap) {
     bootstrap = document.createElement('div');
     bootstrap.id = 'auth-bootstrap-screen';
-    bootstrap.innerHTML = '<div class="auth-bootstrap-spinner"></div><div class="auth-bootstrap-title">4Р для ТРТ</div>';
+    bootstrap.innerHTML = '<div class="auth-bootstrap-spinner"></div><div class="auth-bootstrap-title">VOG Мобильный помощник</div>';
     document.body.appendChild(bootstrap);
   }
   $('auth-screen')?.classList.add('hidden');
@@ -4190,6 +4221,7 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  applyProductBranding();
   ensureJournalAndAuthUi();
   init();
 });

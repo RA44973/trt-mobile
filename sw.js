@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trt-mobile-v2-8-role-access';
+const CACHE_NAME = 'trt-mobile-v2-9-vog-mobile-helper';
 const SHELL = [
   './',
   './index.html',
