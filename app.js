@@ -13,6 +13,7 @@ const API_BASE_URL = 'https://d5dukure58mpc70n6ftu.uvah0e6r.apigw.yandexcloud.ne
 const AUTH_TOKEN_KEY = 'trt-auth-token';
 const AUTH_USER_KEY = 'trt-auth-user';
 const AUTH_VERIFIED_AT_KEY = 'trt-auth-verified-at';
+const DATA_OWNER_KEY = 'trt-data-owner-employee-id';
 const AUTH_OFFLINE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const TASK_TYPES = Object.freeze([
   'Переместить внутри ТРТ',
@@ -1213,10 +1214,16 @@ function updateAccountUi() {
   if (!$('account-full-name')) return;
   $('account-full-name').textContent = currentUser?.full_name || '—';
   $('account-login').textContent = currentUser?.login || '—';
-  $('account-role').textContent = currentUser?.role || '—';
+  $('account-role').textContent = currentUser?.role_label || currentUser?.role || '—';
   $('account-connection').textContent = authOffline ? 'Офлайн' : 'Онлайн';
   $('account-connection').className = authOffline ? 'account-offline' : 'account-online';
   $('offline-banner').classList.toggle('hidden', !authOffline);
+
+  const isGd = String(currentUser?.role || '').toUpperCase() === 'GD';
+  ['mobile-import-button', 'mobile-import-input', 'restore-backup-button', 'restore-backup-input'].forEach(id => {
+    const element = $(id);
+    if (element) element.hidden = !isGd;
+  });
 }
 
 function showLogin(message='') {
@@ -1238,6 +1245,11 @@ async function showApp() {
   if (!appInitialized) {
     initMap();
     bindEvents();
+    if (!authOffline && sessionToken) {
+      await syncTrtsWithServer({
+        silent:true,
+      });
+    }
     await refreshData();
     appInitialized = true;
   } else {
@@ -1278,6 +1290,7 @@ async function handleLogin(event) {
     });
 
     saveAuth(result.session_token, result.user);
+    await ensureDataOwner(currentUser);
     authOffline = false;
     $('password-input').value = '';
     await showApp();
@@ -1301,11 +1314,13 @@ async function restoreAuth() {
 
   sessionToken = storedToken;
   currentUser = storedUser;
+  await ensureDataOwner(currentUser);
   setLoginStatus('Проверяем сохранённую сессию…', true);
 
   try {
     const result = await apiRequest('/auth/me');
     saveAuth(storedToken, result.user);
+    await ensureDataOwner(currentUser);
     authOffline = false;
     await showApp();
   } catch (error) {
@@ -1545,6 +1560,164 @@ async function deleteItem(storeName, id) {
   await transactionComplete(tx);
 }
 
+
+async function clearProtectedLocalStores() {
+  const stores = [
+    STORE_TRTS,
+    STORE_VISITS,
+    STORE_TASKS,
+    STORE_MEDIA,
+  ];
+  const tx = db.transaction(
+    stores,
+    'readwrite',
+  );
+  stores.forEach(name => {
+    tx.objectStore(name).clear();
+  });
+  await transactionComplete(tx);
+}
+
+async function protectedLocalRecordCount() {
+  const collections = await Promise.all([
+    getAll(STORE_TRTS),
+    getAll(STORE_VISITS),
+    getAll(STORE_TASKS),
+    getAll(STORE_MEDIA),
+  ]);
+  return collections.reduce(
+    (total, items) => total + items.length,
+    0,
+  );
+}
+
+async function ensureDataOwner(user) {
+  const employeeId = String(
+    user?.employee_id || user?.employeeId || ''
+  ).trim();
+  if (!employeeId) return;
+
+  const previousOwner = String(
+    localStorage.getItem(DATA_OWNER_KEY) || ''
+  ).trim();
+
+  const role = String(
+    user?.role || ''
+  ).toUpperCase();
+
+  if (
+    previousOwner
+    && previousOwner !== employeeId
+  ) {
+    await clearProtectedLocalStores();
+  } else if (
+    !previousOwner
+    && role !== 'GD'
+    && await protectedLocalRecordCount() > 0
+  ) {
+    // Старый кэш без владельца нельзя показывать новому ограниченному пользователю.
+    await clearProtectedLocalStores();
+  }
+
+  localStorage.setItem(
+    DATA_OWNER_KEY,
+    employeeId,
+  );
+}
+
+async function pruneLocalDataToVisibleTrts() {
+  const visibleIds = new Set(
+    (await getAll(STORE_TRTS))
+      .map(item => String(item.id))
+  );
+
+  for (const storeName of [
+    STORE_VISITS,
+    STORE_TASKS,
+    STORE_MEDIA,
+  ]) {
+    const items = await getAll(storeName);
+    for (const item of items) {
+      const pointId = String(
+        item.trtId || ''
+      );
+      if (
+        !pointId
+        || !visibleIds.has(pointId)
+      ) {
+        await deleteItem(
+          storeName,
+          item.id,
+        );
+      }
+    }
+  }
+}
+
+async function syncTrtsWithServer({
+  silent=true,
+}={}) {
+  if (
+    !sessionToken
+    || authOffline
+    || navigator.onLine === false
+  ) {
+    return {
+      ok:false,
+      offline:true,
+      downloaded:0,
+    };
+  }
+
+  try {
+    const payload = await apiRequest(
+      '/trt-map-data',
+      {
+        method:'GET',
+        timeout:30000,
+      },
+    );
+
+    const points = Array.isArray(
+      payload.points
+    ) ? payload.points : [];
+
+    await replaceTrts(points);
+    await pruneLocalDataToVisibleTrts();
+
+    if (!silent) {
+      showToast(
+        `Доступно ТРТ: ${points.length}`
+      );
+    }
+
+    return {
+      ok:true,
+      downloaded:points.length,
+      access:payload.access || null,
+    };
+  } catch (error) {
+    console.warn(
+      'Не удалось обновить доступные ТРТ',
+      error,
+    );
+    if (!silent) {
+      showToast(
+        'Не удалось обновить список ТРТ'
+      );
+    }
+    return {
+      ok:false,
+      offline:Boolean(
+        error.isNetworkError
+      ),
+      error,
+      downloaded:0,
+    };
+  }
+}
+
+
 async function replaceTrts(importedPoints) {
   const existingById = new Map(trts.map(item => [String(item.id), item]));
   const prepared = importedPoints.map((item, index) => {
@@ -1681,15 +1854,21 @@ async function syncVisitsWithServer({silent=true}={}) {
     });
     const remoteVisits = Array.isArray(remoteResult.visits) ? remoteResult.visits : [];
 
-    if (remoteVisits.length) {
-      const currentLocal = await getAll(STORE_VISITS);
-      const localById = new Map(currentLocal.map(item => [String(item.id), item]));
-      const merged = remoteVisits.map(item => ({
-        ...(localById.get(String(item.id)) || {}),
-        ...item,
-        serverSyncedAt:syncedAt
-      }));
-      await putItems(STORE_VISITS, merged);
+    const currentLocal = await getAll(STORE_VISITS);
+    const localById = new Map(currentLocal.map(item => [String(item.id), item]));
+    const remoteIds = new Set(remoteVisits.map(item => String(item.id)));
+    const merged = remoteVisits.map(item => ({
+      ...(localById.get(String(item.id)) || {}),
+      ...item,
+      serverSyncedAt:syncedAt
+    }));
+
+    if (merged.length) await putItems(STORE_VISITS, merged);
+
+    for (const local of currentLocal) {
+      if (local.serverSyncedAt && !remoteIds.has(String(local.id))) {
+        await deleteItem(STORE_VISITS, local.id);
+      }
     }
 
     await refreshData();
@@ -2037,6 +2216,14 @@ async function syncMediaWithServer({silent=true}={}) {
     ));
 
     if (merged.length) await putItems(STORE_MEDIA, merged);
+
+    const remoteIds = new Set(remoteItems.map(item => String(item.id)));
+    for (const local of currentLocal) {
+      if (local.serverSyncedAt && !remoteIds.has(String(local.id))) {
+        await deleteItem(STORE_MEDIA, local.id);
+      }
+    }
+
     await refreshData();
 
     if (!silent) {
@@ -2067,19 +2254,25 @@ async function syncMediaWithServer({silent=true}={}) {
 }
 
 async function syncAllWithServer({silent=true}={}) {
+  const trtsResult = await syncTrtsWithServer({silent:true});
   const visitsResult = await syncVisitsWithServer({silent:true});
   const tasksResult = await syncTasksWithServer({silent:true});
   const mediaResult = await syncMediaWithServer({silent:true});
 
   if (!silent) {
-    if (visitsResult.ok && tasksResult.ok && mediaResult.ok) {
+    if (trtsResult.ok && visitsResult.ok && tasksResult.ok && mediaResult.ok) {
       showToast('Данные синхронизированы');
     } else {
       showToast('Часть данных осталась на устройстве. Синхронизация повторится автоматически.');
     }
   }
 
-  return {visits:visitsResult, tasks:tasksResult, media:mediaResult};
+  return {
+    trts:trtsResult,
+    visits:visitsResult,
+    tasks:tasksResult,
+    media:mediaResult,
+  };
 }
 
 
@@ -2921,7 +3114,7 @@ function ensureTrtWorkspaceUi() {
   ensureFourPTrtCardUi();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v2.7';
+  if (version) version.textContent = 'v2.8';
 }
 
 function switchScreen(name) {
@@ -3687,6 +3880,9 @@ async function addStandaloneMedia(files) {
 }
 
 async function importMobileJson(file) {
+  if (String(currentUser?.role || '').toUpperCase() !== 'GD') {
+    throw new Error('Импорт справочника доступен только генеральному директору.');
+  }
   const text = await file.text();
   const payload = JSON.parse(text);
   if (payload.schema !== 'trt-mobile-v1' || !Array.isArray(payload.points)) {
@@ -3732,6 +3928,9 @@ async function exportBackup() {
 
 
 async function restoreBackup(file) {
+  if (String(currentUser?.role || '').toUpperCase() !== 'GD') {
+    throw new Error('Восстановление общей копии доступно только генеральному директору.');
+  }
   const text = await file.text();
   const payload = JSON.parse(text);
   if (payload.schema !== 'trt-mobile-backup-v1' || !Array.isArray(payload.trts)) {
