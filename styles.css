@@ -577,3 +577,44 @@ body,
     margin-right: 10px !important;
   }
 }
+
+
+/* TRT card v3 — unified header, integrated rating and active sales row */
+.detail-header {
+  min-height: 84px !important;
+  padding: 12px 14px !important;
+}
+.detail-title { font-size: 21px !important; }
+.detail-address { font-size: 13px !important; margin-top: 4px !important; }
+.fourp-trt-card {
+  overflow: hidden !important;
+  border: 1px solid var(--vog-line) !important;
+  border-radius: 22px !important;
+  background: #fff !important;
+  box-shadow: 0 2px 8px rgba(28,49,78,.05) !important;
+}
+.fourp-trt-toggle {
+  min-height: 84px !important;
+  background: #fff !important;
+}
+.fourp-trt-toggle-main {
+  min-height: 54px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.fourp-trt-chevron { margin: 0 !important; }
+.fourp-trt-chevron svg path { stroke-width: 4.5 !important; }
+.fourp-trt-details-wrap {
+  margin: 0 !important;
+  border: 0 !important;
+  border-top: 1px solid #eaecf0 !important;
+  border-radius: 0 !important;
+}
+.trt-summary-card .detail-grid {
+  grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+}
+.trt-summary-card .info-box { min-height: 72px !important; }
+.trt-summary-card .trt-sales-field { min-height: 68px !important; }

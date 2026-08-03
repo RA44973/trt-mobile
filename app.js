@@ -585,7 +585,10 @@ function ensureFourPTrtCardUi() {
   card.innerHTML = `
     <button id="trt-fourp-toggle" class="fourp-trt-toggle" type="button" aria-expanded="false">
       <span class="fourp-trt-toggle-main">
-        <span class="fourp-trt-toggle-title">Рейтинг ТРТ</span>
+        <span class="fourp-trt-toggle-copy">
+          <span class="fourp-trt-toggle-title">Рейтинг ТРТ</span>
+          <span id="trt-fourp-status" class="fourp-trt-status">АКБ</span>
+        </span>
         <span class="fourp-trt-toggle-score">
           <span id="trt-fourp-stars">${fourPStarsHtml(0)}</span>
           <b id="trt-fourp-total">0,0</b>
@@ -2904,9 +2907,11 @@ function configureTrtInfoUi() {
     }
   });
 
-  replaceTrtInfoLabel(tab, 'Формат', 'Статус ТРТ');
+  const formatValue = $('detail-format');
+  const formatBox = formatValue?.closest('.info-box');
+  if (formatBox) formatBox.remove();
 
-  ['detail-direction','detail-manager','detail-format','detail-size'].forEach(id => {
+  ['detail-direction','detail-manager','detail-size'].forEach(id => {
     const value = $(id);
     if (!value) return;
     value.classList.add('trt-primary-value');
@@ -2997,7 +3002,7 @@ function ensureTrtWorkspaceUi() {
     }
     .trt-archive-tabs{
       display:grid!important;
-      grid-template-columns:repeat(2,minmax(0,1fr))!important;
+      grid-template-columns:repeat(3,minmax(0,1fr))!important;
       gap:9px!important;
       overflow:visible!important;
       padding:0!important;
@@ -3030,29 +3035,32 @@ function ensureTrtWorkspaceUi() {
       box-shadow:0 2px 5px rgba(53,90,147,.18);
     }
     .trt-hidden-sales-tab{display:none!important}
-    .trt-primary-field{padding-top:3px;padding-bottom:3px}
-    .trt-primary-value{font-size:18px!important;font-weight:850!important;line-height:1.3!important;min-height:24px}
+    .trt-primary-field{padding:8px!important}
+    .trt-primary-field .info-label{font-size:16px!important;font-weight:800!important;letter-spacing:0!important;text-transform:none!important}
+    .trt-primary-value{font-size:20px!important;font-weight:850!important;line-height:1.25!important;min-height:28px}
     .fourp-trt-card{padding:0!important;overflow:hidden;margin-bottom:16px!important}
     .fourp-trt-toggle{
       width:100%;
-      min-height:92px;
+      min-height:84px;
       border:0;
       background:#fff;
       color:#17202a;
-      padding:15px 16px 7px;
+      padding:12px 16px 6px;
       display:flex;
       flex-direction:column;
       align-items:stretch;
       gap:5px;
       text-align:left;
     }
-    .fourp-trt-toggle-main{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%}
-    .fourp-trt-toggle-title{font-size:18px;font-weight:900}
+    .fourp-trt-toggle-main{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%}
+    .fourp-trt-toggle-copy{display:flex;min-width:0;flex-direction:column;gap:4px}
+    .fourp-trt-toggle-title{font-size:22px;font-weight:900;line-height:1.1}
+    .fourp-trt-status{color:#98a2b3;font-size:15px;font-weight:800;line-height:1}
     .fourp-trt-toggle-score{display:flex;align-items:center;justify-content:flex-end;gap:9px;white-space:nowrap;margin-left:auto}
     .fourp-trt-toggle-score b{
       min-width:48px;
       text-align:right;
-      font-size:23px;
+      font-size:26px;
       font-weight:950;
       color:#17202a;
     }
@@ -3062,33 +3070,45 @@ function ensureTrtWorkspaceUi() {
       align-items:center;
       justify-content:center;
       width:100%;
-      height:28px;
+      height:22px;
       color:#b4b7be;
       transition:transform .2s ease,color .2s ease;
     }
-    .fourp-trt-chevron svg{width:52px;height:25px;display:block}
+    .fourp-trt-chevron svg{width:78px;height:25px;display:block}
     .fourp-trt-chevron.open{transform:rotate(180deg);color:#858992}
     .fourp-under-main-header{margin:14px 14px 16px!important}
     .trt-sales-field{
-      min-height:124px!important;
-      display:flex!important;
-      flex-direction:column!important;
+      grid-column:1/-1!important;
+      min-height:68px!important;
+      display:grid!important;
+      grid-template-columns:minmax(110px,1fr) auto minmax(42px,1fr)!important;
+      align-items:center!important;
+      gap:10px!important;
+      padding:11px 14px!important;
+      border:1px solid #dbe3ee!important;
+      border-radius:14px!important;
+      background:#f8fbff!important;
+      cursor:pointer!important;
       box-sizing:border-box!important;
     }
+    .trt-sales-field:active{background:#edf4fb!important}
+    .trt-sales-field .info-label{font-size:16px!important;font-weight:850!important;text-transform:none!important;letter-spacing:0!important;color:#344054!important}
     .trt-sales-value{
       display:flex!important;
-      flex:1 1 auto!important;
-      min-height:82px!important;
+      min-height:0!important;
       align-items:center!important;
       justify-content:center!important;
       gap:7px!important;
-      width:100%!important;
+      width:auto!important;
       text-align:center!important;
+      pointer-events:none!important;
     }
-    .trt-sales-number{font-size:30px!important;font-weight:950!important;line-height:1!important}
-    .trt-sales-unit{font-size:15px!important;font-weight:750!important;color:#667085}
-    .fourp-trt-details-wrap{padding:0 14px 13px;border-top:1px solid #eaecf0}
-    .fourp-trt-line{font-size:13px!important;padding:10px 0!important}
+    .trt-sales-number{font-size:24px!important;font-weight:950!important;line-height:1!important;color:#17202a!important}
+    .trt-sales-unit{font-size:14px!important;font-weight:750!important;color:#667085}
+    .trt-sales-graph-icon{justify-self:end;width:28px;height:28px;color:#355a93;pointer-events:none}
+    .trt-sales-graph-icon svg{display:block;width:100%;height:100%;fill:currentColor}
+    .fourp-trt-details-wrap{padding:0 16px 14px;border-top:1px solid #eaecf0;background:#fff}
+    .fourp-trt-line{font-size:16px!important;padding:12px 0!important}
     .task-actions{display:flex;flex-wrap:wrap;gap:7px}
     .task-actions button{min-height:38px;font-weight:700}
     @media (max-width:360px){
@@ -3123,11 +3143,7 @@ function ensureTrtWorkspaceUi() {
   const mediaTab = tabs.querySelector('[data-tab="media"]');
 
   if (infoTab) infoTab.remove();
-  if (salesTab) {
-    salesTab.classList.remove('trt-hidden-sales-tab');
-    salesTab.textContent = 'Продажи';
-    salesTab.setAttribute('aria-label', 'Продажи ТРТ');
-  }
+  if (salesTab) salesTab.remove();
   if (visitsTab) visitsTab.textContent = 'Визиты';
   if (tasksTab) tasksTab.textContent = 'Задачи';
   if (mediaTab) {
@@ -3136,7 +3152,7 @@ function ensureTrtWorkspaceUi() {
   }
 
   tabs.classList.add('trt-archive-tabs');
-  [visitsTab, tasksTab, mediaTab, salesTab].forEach(tab => {
+  [visitsTab, tasksTab, mediaTab].forEach(tab => {
     if (tab) tabs.appendChild(tab);
   });
 
@@ -3144,8 +3160,29 @@ function ensureTrtWorkspaceUi() {
   ensureFourPVisitUi();
   ensureFourPTrtCardUi();
 
+  const salesField = $('detail-size')?.closest('.info-box');
+  if (salesField && salesField.dataset.salesBound !== '1') {
+    salesField.dataset.salesBound = '1';
+    salesField.classList.add('trt-sales-field');
+    salesField.setAttribute('role', 'button');
+    salesField.setAttribute('tabindex', '0');
+    salesField.setAttribute('aria-label', 'Открыть график продаж');
+    const icon = document.createElement('span');
+    icon.className = 'trt-sales-graph-icon';
+    icon.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16v2H2V3h2v16Zm3-3-2-2 4-4 3 3 5-6 2 2-7 8-3-3-2 2Z"/></svg>';
+    salesField.appendChild(icon);
+    const openSales = () => setDetailTab('sales');
+    salesField.addEventListener('click', openSales);
+    salesField.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openSales();
+      }
+    });
+  }
+
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v2.9';
+  if (version) version.textContent = 'v3.0';
 }
 
 function switchScreen(name) {
@@ -3186,7 +3223,7 @@ function renderSelectedTrt() {
   $('detail-address').textContent = trt.address || '';
   $('detail-direction').textContent = trt.direction || '—';
   $('detail-manager').textContent = shortPersonName(trt.manager) || '—';
-  $('detail-format').textContent = trt.status || trt.trtStatus || '\u00a0';
+  if ($('trt-fourp-status')) $('trt-fourp-status').textContent = 'АКБ';
   const salesValue = $('detail-size');
   if (salesValue) {
     salesValue.classList.add('trt-sales-value');
