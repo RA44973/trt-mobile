@@ -5,9 +5,9 @@
   --text:#17202a;
   --muted:#667085;
   --line:#e4e7ec;
-  --primary:#176b4d;
-  --primary-2:#0f5138;
-  --blue:#1677ff;
+  --primary:#355a93;
+  --primary-2:#27456f;
+  --blue:#159bc4;
   --danger:#b42318;
   --warning:#b54708;
   --shadow:0 8px 24px rgba(16,24,40,.12);
@@ -370,3 +370,210 @@ button { -webkit-tap-highlight-color:transparent; }
 .offline-banner:not(.hidden) + .app-shell .map-toolbar { top:98px; }
 .account-offline { color:#b54708; }
 .account-online { color:#067647; }
+
+
+/* VOG brand + TRT card layout — 2026-08-03 */
+:root {
+  --vog-blue: #355a93;
+  --vog-blue-dark: #27456f;
+  --vog-magenta: #b63a8d;
+  --vog-cyan: #159bc4;
+  --vog-bg: #f3f6fa;
+  --vog-line: #dbe3ee;
+  --primary: var(--vog-blue);
+  --primary-2: var(--vog-blue-dark);
+  --blue: var(--vog-cyan);
+  --bg: var(--vog-bg);
+  --line: var(--vog-line);
+}
+
+body,
+.detail-overlay,
+#tab-info {
+  background: var(--vog-bg) !important;
+}
+
+.primary-button,
+.nav-button.active,
+.tab-button.active,
+.trt-archive-tabs .tab-button.active {
+  background: var(--vog-blue) !important;
+  color: #fff !important;
+}
+
+.primary-button:active,
+.trt-work-actions button:active {
+  background: var(--vog-blue-dark) !important;
+}
+
+.counter-pill {
+  background: #eaf0f8 !important;
+  color: var(--vog-blue) !important;
+}
+
+.floating-button,
+.auth-status.success,
+.visit-voice-button,
+.visit-journal-card .visit-edit-state.editable {
+  color: var(--vog-blue) !important;
+}
+
+.auth-screen {
+  background:
+    radial-gradient(circle at 18% 8%, rgba(21,155,196,.18), transparent 34%),
+    radial-gradient(circle at 85% 88%, rgba(182,58,141,.13), transparent 30%),
+    linear-gradient(160deg,#edf3fa 0%,#f5f6f9 54%,#f8eef6 100%) !important;
+}
+
+.auth-logo {
+  background: var(--vog-blue) !important;
+  box-shadow: 0 10px 24px rgba(53,90,147,.28) !important;
+}
+
+.topbar {
+  border-bottom-color: var(--vog-line) !important;
+}
+
+.detail-overlay {
+  overflow-y: auto;
+}
+
+/* Шапка карточки ТРТ: единая ширина с остальными блоками. */
+.detail-header {
+  position: sticky !important;
+  top: 10px !important;
+  z-index: 20 !important;
+  width: calc(100% - 28px) !important;
+  min-height: 62px !important;
+  margin: 10px 14px 0 !important;
+  padding: 9px 12px !important;
+  border: 1px solid rgba(219,227,238,.95) !important;
+  border-radius: 22px !important;
+  background: rgba(255,255,255,.97) !important;
+  box-shadow: 0 5px 16px rgba(28,49,78,.08) !important;
+  backdrop-filter: blur(14px);
+}
+
+.detail-body {
+  padding: 0 0 24px !important;
+}
+
+/* Рейтинг: тоньше, стрелка отдельно ниже белого блока. */
+.fourp-trt-card {
+  margin: 12px 14px 14px !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.fourp-trt-toggle {
+  min-height: 0 !important;
+  padding: 0 !important;
+  gap: 4px !important;
+  overflow: visible !important;
+  background: transparent !important;
+}
+
+.fourp-trt-toggle-main {
+  min-height: 64px !important;
+  padding: 11px 15px !important;
+  border: 1px solid var(--vog-line) !important;
+  border-radius: 22px !important;
+  background: #fff !important;
+  box-shadow: 0 2px 8px rgba(28,49,78,.05);
+}
+
+.fourp-trt-toggle-title {
+  color: #1a2840 !important;
+  font-size: 17px !important;
+}
+
+.fourp-trt-toggle-score b {
+  color: var(--vog-blue) !important;
+  font-size: 21px !important;
+}
+
+.fourp-trt-chevron {
+  width: 100% !important;
+  height: 22px !important;
+  margin-top: 0 !important;
+  color: #8d9aab !important;
+}
+
+.fourp-trt-chevron svg {
+  width: 58px !important;
+  height: 20px !important;
+}
+
+.fourp-trt-chevron svg path {
+  stroke-width: 4.5 !important;
+}
+
+.fourp-trt-details-wrap {
+  margin-top: 2px !important;
+  padding: 4px 14px 13px !important;
+  border: 1px solid var(--vog-line) !important;
+  border-radius: 18px !important;
+  background: #fff !important;
+}
+
+/* Все блоки карточки на одной сетке. */
+.trt-summary-card {
+  width: calc(100% - 28px) !important;
+  margin: 0 14px 14px !important;
+  border: 1px solid var(--vog-line) !important;
+  border-radius: 22px !important;
+}
+
+.trt-archive-label {
+  margin: 20px 14px 9px !important;
+}
+
+.trt-archive-tabs {
+  width: calc(100% - 28px) !important;
+  margin: 0 14px 16px !important;
+}
+
+#tab-sales,
+#tab-visits,
+#tab-media,
+#tab-tasks {
+  padding: 0 14px 20px !important;
+}
+
+.trt-work-actions button {
+  border-color: var(--vog-blue) !important;
+  background: var(--vog-blue) !important;
+  box-shadow: 0 2px 5px rgba(53,90,147,.18) !important;
+}
+
+.trt-archive-tabs .tab-button.active {
+  border-color: var(--vog-blue) !important;
+  box-shadow: 0 2px 5px rgba(53,90,147,.18) !important;
+}
+
+.fourp-rating-pill,
+.fourp-rating-button,
+.fourp-total-display,
+.fourp-trt-total-display {
+  color: var(--vog-blue-dark) !important;
+}
+
+.fourp-help-button {
+  border-color: #91a8c8 !important;
+  color: var(--vog-blue) !important;
+}
+
+@media (max-width: 360px) {
+  .detail-header,
+  .fourp-trt-card,
+  .trt-summary-card,
+  .trt-archive-tabs {
+    width: calc(100% - 20px) !important;
+    margin-left: 10px !important;
+    margin-right: 10px !important;
+  }
+}

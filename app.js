@@ -593,7 +593,7 @@ function ensureFourPTrtCardUi() {
       </span>
       <span id="trt-fourp-chevron" class="fourp-trt-chevron" aria-hidden="true">
         <svg viewBox="0 0 48 24" focusable="false" aria-hidden="true">
-          <path d="M5 5 L24 16 L43 5" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4 7 L24 15 L44 7" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </span>
     </button>
@@ -941,18 +941,18 @@ function ensureVisitWorkflowUi() {
     .visit-result-trigger span{display:inline-flex;margin:2px 4px 2px 0;padding:6px 8px;border-radius:8px;background:#f2f4f7;color:#344054;font-size:13px;font-weight:750}
     .visit-result-trigger.empty span{padding:0;background:transparent;color:#98a2b3;font-size:15px;font-weight:500}
     .visit-result-option{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid #eaecf0;color:#17202a;font-weight:700}
-    .visit-result-option input{width:20px;height:20px;margin:0;accent-color:#176b4d}
+    .visit-result-option input{width:20px;height:20px;margin:0;accent-color:#355a93}
     .visit-result-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
     .visit-label-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
-    .visit-voice-button{width:46px;height:38px;border:1px solid #b8d4a8;border-radius:10px;background:#fff;color:#176b4d;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden}
+    .visit-voice-button{width:46px;height:38px;border:1px solid #b8d4a8;border-radius:10px;background:#fff;color:#355a93;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden}
     .visit-microphone-icon{width:21px;height:21px;fill:currentColor}
     .visit-voice-button.listening{background:#e7f3ee;box-shadow:0 0 0 4px rgba(23,107,77,.08)}
     .visit-voice-wave{height:22px;display:flex;align-items:center;justify-content:center;gap:3px}
-    .visit-voice-wave i{display:block;width:3px;height:7px;border-radius:3px;background:#176b4d;animation:visitWave .72s ease-in-out infinite}
+    .visit-voice-wave i{display:block;width:3px;height:7px;border-radius:3px;background:#355a93;animation:visitWave .72s ease-in-out infinite}
     .visit-voice-wave i:nth-child(2){animation-delay:.10s}.visit-voice-wave i:nth-child(3){animation-delay:.20s}.visit-voice-wave i:nth-child(4){animation-delay:.30s}.visit-voice-wave i:nth-child(5){animation-delay:.40s}
     @keyframes visitWave{0%,100%{height:6px;opacity:.55}50%{height:22px;opacity:1}}
     .visit-media-button-row{display:grid!important;grid-template-columns:1fr 1fr;gap:12px}
-    .visit-media-button{min-height:92px!important;border:2px solid #b8d4a8!important;border-radius:16px!important;background:#f8fff9!important;color:#176b4d!important;font-size:16px!important;display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+    .visit-media-button{min-height:92px!important;border:2px solid #b8d4a8!important;border-radius:16px!important;background:#f8fff9!important;color:#355a93!important;font-size:16px!important;display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px}
     .visit-media-button svg{width:30px;height:30px;fill:currentColor}
     .visit-journal-list{display:grid;gap:10px}
     .visit-journal-card{width:100%;border:1px solid #e4e7ec;border-radius:15px;padding:13px;background:#fff;color:#17202a;text-align:left;box-shadow:0 1px 2px rgba(16,24,40,.04)}
@@ -960,13 +960,13 @@ function ensureVisitWorkflowUi() {
     .visit-journal-head strong{display:block;font-size:15px}
     .visit-journal-head span{display:block;margin-top:3px;color:#667085;font-size:11px}
     .visit-edit-state{flex:0 0 auto!important;margin:0!important;padding:5px 7px;border-radius:8px;background:#f2f4f7;color:#667085!important;font-size:10px!important;font-weight:800}
-    .visit-edit-state.editable{background:#e7f3ee;color:#176b4d!important}
+    .visit-edit-state.editable{background:#e7f3ee;color:#355a93!important}
     .visit-journal-result{margin-top:9px;font-size:13px;font-weight:750;line-height:1.35}
     .visit-journal-comment{margin-top:7px;color:#667085;font-size:12px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .visit-journal-rating{display:flex;align-items:center;gap:6px;margin-top:8px;color:#775d00}
     .visit-journal-rating .fourp-star{font-size:14px}
     .visit-timeline-button{width:100%;border:0;text-align:left;color:inherit;cursor:pointer}
-    .visit-edit-notice{margin:0 0 12px;padding:10px 12px;border-radius:11px;background:#e7f3ee;color:#176b4d;font-size:12px;font-weight:750}
+    .visit-edit-notice{margin:0 0 12px;padding:10px 12px;border-radius:11px;background:#e7f3ee;color:#355a93;font-size:12px;font-weight:750}
   `;
   document.head.appendChild(style);
 
@@ -2978,14 +2978,14 @@ function ensureTrtWorkspaceUi() {
       font-weight:850!important;
       line-height:1.1!important;
       white-space:nowrap;
-      border:1px solid #3f8068!important;
+      border:1px solid #355a93!important;
       border-radius:14px!important;
-      background:#4d9278!important;
+      background:#355a93!important;
       color:#fff!important;
-      box-shadow:0 2px 5px rgba(48,111,86,.18)!important;
+      box-shadow:0 2px 5px rgba(53,90,147,.18)!important;
     }
     .trt-work-actions button:active{
-      background:#39765f!important;
+      background:#27456f!important;
       transform:translateY(1px);
     }
     .trt-archive-label{
@@ -3024,10 +3024,10 @@ function ensureTrtWorkspaceUi() {
       box-shadow:0 1px 2px rgba(16,24,40,.05);
     }
     .trt-archive-tabs .tab-button.active{
-      border-color:#176b4d!important;
-      background:#176b4d!important;
+      border-color:#355a93!important;
+      background:#355a93!important;
       color:#fff!important;
-      box-shadow:0 2px 5px rgba(23,107,77,.18);
+      box-shadow:0 2px 5px rgba(53,90,147,.18);
     }
     .trt-hidden-sales-tab{display:none!important}
     .trt-primary-field{padding-top:3px;padding-bottom:3px}
@@ -3145,7 +3145,7 @@ function ensureTrtWorkspaceUi() {
   ensureFourPTrtCardUi();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v2.8';
+  if (version) version.textContent = 'v2.9';
 }
 
 function switchScreen(name) {
@@ -4098,9 +4098,9 @@ function ensureJournalAndAuthUi() {
   const style = document.createElement('style');
   style.id = 'journal-auth-ui-style';
   style.textContent = `
-    #auth-bootstrap-screen{position:fixed;inset:0;z-index:12000;background:#f5f7fa;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;color:#176b4d}
+    #auth-bootstrap-screen{position:fixed;inset:0;z-index:12000;background:#f5f7fa;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;color:#355a93}
     #auth-bootstrap-screen.hidden{display:none}
-    .auth-bootstrap-spinner{width:34px;height:34px;border:4px solid #d9eadf;border-top-color:#176b4d;border-radius:50%;animation:authBootstrapSpin .8s linear infinite}
+    .auth-bootstrap-spinner{width:34px;height:34px;border:4px solid #d9eadf;border-top-color:#355a93;border-radius:50%;animation:authBootstrapSpin .8s linear infinite}
     .auth-bootstrap-title{font-size:16px;font-weight:850}
     @keyframes authBootstrapSpin{to{transform:rotate(360deg)}}
 
@@ -4144,7 +4144,7 @@ function ensureJournalAndAuthUi() {
     .task-detail-actions button{min-width:0!important;padding-left:6px!important;padding-right:6px!important}
     .shared-fullscreen-card-header{width:100%;box-sizing:border-box}
     .shared-fullscreen-card-header-fallback{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:8px;align-items:center;padding:2px 0 13px;border-bottom:1px solid #eaecf0;margin-bottom:14px}
-    .shared-card-header-button{width:42px;height:42px;border:0;border-radius:12px;background:#f2f4f7;color:#176b4d;font-size:24px;font-weight:900}
+    .shared-card-header-button{width:42px;height:42px;border:0;border-radius:12px;background:#f2f4f7;color:#355a93;font-size:24px;font-weight:900}
     .shared-card-header-copy{min-width:0;text-align:left}
     .shared-card-header-title{font-size:19px;font-weight:900;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .shared-card-header-subtitle{margin-top:3px;color:#667085;font-size:12px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
