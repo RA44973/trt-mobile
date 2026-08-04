@@ -1745,3 +1745,12 @@ body,
 #detail-overlay .detail-body.trt-layout-v35 > #tab-sales {
   display: none !important;
 }
+
+
+/* v4.6 — Архив фото/видео только для просмотра */
+#detail-overlay #tab-media > .card:first-child {
+  display: none !important;
+}
+#detail-overlay #tab-media .empty-state p {
+  display: none !important;
+}

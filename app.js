@@ -3096,7 +3096,7 @@ function ensureTrtWorkspaceUi() {
   enforceTrtCardLayoutV35();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v4.5';
+  if (version) version.textContent = 'v4.6';
 }
 
 
@@ -3409,9 +3409,8 @@ function renderMedia(kind='all') {
   const grid = $('media-grid');
   grid.innerHTML = '';
   if (!rows.length) {
-    const title = kind === 'video' ? 'Видео пока нет' : kind === 'photo' ? 'Фотографий пока нет' : 'Материалов нет';
-    const hint = kind === 'video' ? 'Добавьте видео этой точки.' : kind === 'photo' ? 'Добавьте фотографии этой точки.' : 'Добавьте фото или видео этой точки.';
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;margin:0;"><h3>${title}</h3><p>${hint}</p></div>`;
+    const title = kind === 'video' ? 'Видео пока нет' : kind === 'photo' ? 'Фото пока нет' : 'Материалов пока нет';
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;margin:0;"><h3>${title}</h3></div>`;
     return;
   }
 
