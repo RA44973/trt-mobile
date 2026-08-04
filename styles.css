@@ -1569,3 +1569,26 @@ body,
   font-weight: 850 !important;
   letter-spacing: .06em !important;
 }
+
+/* v4.0 — размер итогового рейтинга, иконка графика и увеличенный отступ после шапки */
+#detail-overlay #trt-fourp-total {
+  font-size: 23px !important;
+  line-height: 1.1 !important;
+}
+#detail-overlay .trt-sales-chart-icon {
+  right: 18px !important;
+  top: 50% !important;
+  bottom: auto !important;
+  transform: translateY(-50%) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+#detail-overlay .detail-header {
+  margin-bottom: 26px !important;
+}
+@media (max-width:360px) {
+  #detail-overlay #trt-fourp-total {
+    font-size: 21px !important;
+  }
+}
