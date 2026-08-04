@@ -1101,7 +1101,7 @@ function ensureVisitWorkflowUi() {
             <option value="all">Все визиты</option>
           </select>
           <button id="visits-filter-button" class="journal-filter-button" type="button" aria-label="Фильтры визитов" title="Фильтры">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.2 7.1V18l-3.6 1.8v-7.7L4 5Z"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h8M16 7h4M4 17h4M12 17h8"/><circle cx="14" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
             <span class="journal-filter-count" aria-hidden="true"></span>
           </button>
         </div>
@@ -3108,7 +3108,7 @@ function ensureTrtWorkspaceUi() {
   enforceTrtCardLayoutV35();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v4.8';
+  if (version) version.textContent = 'v6.2';
 }
 
 
@@ -4021,20 +4021,45 @@ function ensureTaskCreationUi() {
     mountMatchingCardHeader('task-create', taskHeaderHost, closeModals);
   }
 
-  if (currentTitleField.tagName !== 'SELECT') {
+  let source = $('task-title');
+  if (source.tagName !== 'SELECT') {
     const select = document.createElement('select');
     select.id = 'task-title';
     select.className = currentTitleField.className;
+    select.dataset.unifiedSelectIgnore = '1';
     select.innerHTML = [
       '<option value="">Выберите задачу</option>',
       ...TASK_TYPES.map(item => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`)
     ].join('');
     currentTitleField.replaceWith(select);
+    source = select;
 
     const group = select.closest('.field-group');
     const label = group?.querySelector('.field-label');
-    if (label) label.textContent = 'Задача';
+    if (label) {
+      label.textContent = 'Задача';
+      label.htmlFor = 'task-title-trigger';
+    }
+  } else {
+    source.dataset.unifiedSelectIgnore = '1';
   }
+
+  source.hidden = true;
+  source.disabled = false;
+
+  if (!$('task-title-trigger')) {
+    const trigger = document.createElement('button');
+    trigger.id = 'task-title-trigger';
+    trigger.type = 'button';
+    trigger.className = 'visit-result-trigger task-title-trigger empty';
+    trigger.innerHTML = '<span>Выберите задачу</span>';
+    trigger.setAttribute('aria-haspopup', 'dialog');
+    source.insertAdjacentElement('afterend', trigger);
+    trigger.addEventListener('click', openTaskTitlePicker);
+  }
+
+  ensureTaskTitlePicker();
+  updateTaskTitleTrigger();
 
   const taskDescription = $('task-description');
   const taskDescriptionGroup = taskDescription?.closest('.field-group');
@@ -4097,6 +4122,157 @@ function ensureTaskCreationUi() {
   }
 }
 
+let taskTitleDraftValue = '';
+let taskTitleDraftOther = '';
+
+function taskTitleCurrentValue() {
+  return String($('task-title')?.value || '').trim();
+}
+
+function updateTaskTitleTrigger() {
+  const trigger = $('task-title-trigger');
+  if (!trigger) return;
+  const value = taskTitleCurrentValue();
+  trigger.classList.toggle('empty', !value);
+  trigger.innerHTML = value ? `<span>${escapeHtml(value)}</span>` : '<span>Выберите задачу</span>';
+}
+
+function ensureTaskTitlePicker() {
+  if ($('task-title-picker')) return;
+  const picker = document.createElement('div');
+  picker.id = 'task-title-picker';
+  picker.className = 'modal-backdrop task-title-picker';
+  picker.innerHTML = `
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="visit-goal-picker-head">
+        <h2 class="modal-title">Выберите задачу</h2>
+        <button id="task-title-close" class="visit-picker-close" type="button" aria-label="Закрыть">×</button>
+      </div>
+      <div id="task-title-options">
+        ${TASK_TYPES.map(option => `
+          <label class="visit-result-option task-title-option">
+            <input type="checkbox" value="${escapeHtml(option)}" data-task-title-option>
+            <span>${escapeHtml(option)}</span>
+          </label>`).join('')}
+        <label class="visit-result-option task-title-option task-title-other-option">
+          <input id="task-title-other-check" type="checkbox" value="__other__" data-task-title-option>
+          <span>Другая</span>
+        </label>
+      </div>
+      <div class="field-group task-title-other-field">
+        <label class="field-label" for="task-title-other-input">Другая</label>
+        <input id="task-title-other-input" class="text-input" type="text" placeholder="Введи свою задачу">
+      </div>
+      <div class="visit-result-actions">
+        <button id="task-title-cancel" class="secondary-button" type="button">Отмена</button>
+        <button id="task-title-apply" class="primary-button" type="button">Готово</button>
+      </div>
+    </div>`;
+  document.body.appendChild(picker);
+
+  picker.querySelectorAll('[data-task-title-option]').forEach(input => {
+    input.addEventListener('change', () => {
+      if (!input.checked) {
+        if (taskTitleDraftValue === input.value) taskTitleDraftValue = '';
+        renderTaskTitlePicker();
+        return;
+      }
+      taskTitleDraftValue = input.value;
+      picker.querySelectorAll('[data-task-title-option]').forEach(other => {
+        other.checked = other === input;
+      });
+      if (input.value !== '__other__') {
+        taskTitleDraftOther = '';
+        const otherField = $('task-title-other-input');
+        if (otherField) otherField.value = '';
+      }
+      renderTaskTitlePicker();
+    });
+  });
+
+  $('task-title-other-input').addEventListener('input', event => {
+    taskTitleDraftOther = String(event.target.value || '');
+    if (taskTitleDraftOther.trim()) taskTitleDraftValue = '__other__';
+    renderTaskTitlePicker();
+  });
+  $('task-title-close').addEventListener('click', closeTaskTitlePicker);
+  $('task-title-cancel').addEventListener('click', closeTaskTitlePicker);
+  $('task-title-apply').addEventListener('click', applyTaskTitlePicker);
+  picker.addEventListener('click', event => {
+    if (event.target === picker) {
+      event.stopImmediatePropagation();
+      closeTaskTitlePicker();
+    }
+  });
+}
+
+function renderTaskTitlePicker() {
+  const picker = $('task-title-picker');
+  if (!picker) return;
+  picker.querySelectorAll('[data-task-title-option]').forEach(input => {
+    input.checked = input.value === taskTitleDraftValue;
+  });
+  const otherInput = $('task-title-other-input');
+  if (otherInput) {
+    if (otherInput.value !== taskTitleDraftOther) otherInput.value = taskTitleDraftOther;
+    otherInput.disabled = taskTitleDraftValue !== '__other__';
+  }
+  picker.classList.toggle('has-other', taskTitleDraftValue === '__other__');
+}
+
+function openTaskTitlePicker() {
+  ensureTaskTitlePicker();
+  const current = taskTitleCurrentValue();
+  if (TASK_TYPES.includes(current)) {
+    taskTitleDraftValue = current;
+    taskTitleDraftOther = '';
+  } else if (current) {
+    taskTitleDraftValue = '__other__';
+    taskTitleDraftOther = current;
+  } else {
+    taskTitleDraftValue = '';
+    taskTitleDraftOther = '';
+  }
+  renderTaskTitlePicker();
+  $('task-title-picker').classList.add('open');
+}
+
+function closeTaskTitlePicker() {
+  $('task-title-picker')?.classList.remove('open');
+}
+
+function applyTaskTitlePicker() {
+  let value = '';
+  if (taskTitleDraftValue === '__other__') {
+    value = String($('task-title-other-input')?.value || '').trim();
+    if (!value) {
+      showToast('Введите свою задачу');
+      return;
+    }
+  } else {
+    value = String(taskTitleDraftValue || '').trim();
+  }
+  if (!value) {
+    showToast('Выберите задачу');
+    return;
+  }
+
+  const source = $('task-title');
+  if (!source) return;
+  let option = Array.from(source.options || []).find(item => item.value === value);
+  if (!option) {
+    option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    option.dataset.customTask = '1';
+    source.appendChild(option);
+  }
+  source.value = value;
+  updateTaskTitleTrigger();
+  closeTaskTitlePicker();
+}
+
 function updateTaskCreationFilesNote() {
   const note = $('task-create-files-note');
   if (!note) return;
@@ -4133,6 +4309,8 @@ function openTaskModal() {
   );
   taskCreationFiles = [];
   $('task-title').value = '';
+  Array.from($('task-title').options || []).filter(option => option.dataset.customTask === '1').forEach(option => option.remove());
+  updateTaskTitleTrigger();
   $('task-create-photo-input').value = '';
   $('task-create-video-input').value = '';
   updateTaskCreationFilesNote();
@@ -4148,7 +4326,7 @@ async function saveTask() {
   if (saveTaskInProgress) return;
 
   const title = $('task-title').value.trim();
-  if (!TASK_TYPES.includes(title)) {
+  if (!title) {
     showToast('Выберите задачу');
     return;
   }
@@ -5051,6 +5229,41 @@ function ensureV61Ui() {
   updateNavigationForPermissions();
 }
 
+
+function ensureV62Ui() {
+  if ($('v62-ui-style')) return;
+  const style = document.createElement('style');
+  style.id = 'v62-ui-style';
+  style.textContent = `
+    /* v6.2: фильтры работают поверх своего окна и используют значок «ползунки». */
+    #journal-filter-modal{z-index:3200!important}
+    #unified-select-picker{z-index:3400!important}
+    #task-title-picker{z-index:3500!important}
+    .journal-filter-button svg{width:25px!important;height:25px!important;fill:none!important;stroke:currentColor!important;stroke-width:1.9!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+    .journal-filter-button svg circle{fill:#fff!important;stroke:currentColor!important;stroke-width:1.9!important}
+    .journal-filter-button.is-active svg circle{fill:#e2ebf6!important}
+
+    /* Карточка добавления ТРТ использует те же размеры шрифтов, что КВ и КЗ. */
+    .point-create-modal .modal-title{font-size:19px!important;font-weight:900!important;line-height:1.25!important;color:#17202a!important}
+    .point-create-modal .field-label{margin:0 0 8px!important;color:#667085!important;font-size:11px!important;font-weight:500!important;line-height:1.25!important;letter-spacing:.04em!important;text-transform:uppercase!important}
+    .point-create-modal .text-input,
+    .point-create-modal .text-area,
+    .point-create-modal .select-input,
+    .point-create-modal .unified-select-trigger{font-size:16px!important;font-weight:500!important;line-height:1.4!important;color:#1a2840!important}
+    .point-create-modal .file-note{font-size:12px!important;font-weight:500!important;line-height:1.45!important;color:#667085!important}
+    .point-create-modal .modal-actions button{font-size:15px!important;font-weight:800!important}
+
+    /* Выбор задачи повторяет окно «Цель визита», но допускает только один вариант. */
+    #task-title-picker .modal-sheet{background:#fff!important}
+    #task-title-picker .task-title-option input{width:20px!important;height:20px!important;min-width:20px!important;margin:0!important;border-radius:4px!important;accent-color:#355a93!important}
+    #task-title-picker .task-title-other-field{margin-top:14px!important}
+    #task-title-picker .task-title-other-field .text-input:disabled{background:#f5f7fa!important;color:#98a2b3!important}
+    #task-title-picker.has-other .task-title-other-field .text-input{background:#fff!important;color:#17202a!important}
+    .task-title-trigger{min-height:56px!important}
+  `;
+  document.head.appendChild(style);
+}
+
 function bindEvents() {
   ensureTaskCreationUi();
   ensureTrtWorkspaceUi();
@@ -5058,6 +5271,7 @@ function bindEvents() {
   ensureUnifiedSelectUi();
   ensureV60FinalUi();
   ensureV61Ui();
+  ensureV62Ui();
 
   document.querySelectorAll('.nav-button').forEach(button => {
     button.addEventListener('click', () => switchScreen(button.dataset.screen));
