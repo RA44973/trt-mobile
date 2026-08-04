@@ -3628,9 +3628,163 @@ function updateVisitFilesNote() {
     : 'Файлы не выбраны';
 }
 
+const MAX_MEDIA_VIDEO_SECONDS = 30;
+const MAX_COMPRESSED_IMAGE_SIDE = 1600;
+const IMAGE_JPEG_QUALITY = 0.78;
+const VIDEO_TARGET_BITRATE = 1200000;
+const VIDEO_AUDIO_BITRATE = 64000;
+
+function mediaFileNameWithExtension(name, extension) {
+  const base = String(name || 'файл').replace(/\.[^.]+$/, '') || 'файл';
+  return `${base}.${extension}`;
+}
+
+async function getVideoDurationSeconds(file) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    const url = URL.createObjectURL(file);
+    const cleanup = () => {
+      URL.revokeObjectURL(url);
+      video.removeAttribute('src');
+      video.load();
+    };
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      const duration = Number(video.duration);
+      cleanup();
+      Number.isFinite(duration) ? resolve(duration) : reject(new Error('Не удалось определить длительность видео'));
+    };
+    video.onerror = () => {
+      cleanup();
+      reject(new Error('Не удалось прочитать видео'));
+    };
+    video.src = url;
+  });
+}
+
+async function compressImageFile(file) {
+  if (!String(file.type || '').startsWith('image/')) return file;
+  const bitmap = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, MAX_COMPRESSED_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d', {alpha:false});
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, width, height);
+    context.drawImage(bitmap, 0, 0, width, height);
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(value => value ? resolve(value) : reject(new Error('Не удалось сжать фотографию')), 'image/jpeg', IMAGE_JPEG_QUALITY);
+    });
+    if (blob.size >= file.size && file.size <= 2 * 1024 * 1024) return file;
+    return new File([blob], mediaFileNameWithExtension(file.name, 'jpg'), {
+      type:'image/jpeg',
+      lastModified:Date.now()
+    });
+  } finally {
+    bitmap.close?.();
+  }
+}
+
+function supportedCompressedVideoMimeType() {
+  if (!window.MediaRecorder) return '';
+  return [
+    'video/webm;codecs=vp8,opus',
+    'video/webm;codecs=vp8',
+    'video/webm'
+  ].find(type => MediaRecorder.isTypeSupported(type)) || '';
+}
+
+async function compressVideoFile(file, duration) {
+  if (!String(file.type || '').startsWith('video/')) return file;
+  if (file.size <= 12 * 1024 * 1024) return file;
+  const mimeType = supportedCompressedVideoMimeType();
+  if (!mimeType) return file;
+
+  const sourceUrl = URL.createObjectURL(file);
+  const video = document.createElement('video');
+  video.src = sourceUrl;
+  video.muted = false;
+  video.playsInline = true;
+  video.preload = 'auto';
+
+  try {
+    await new Promise((resolve, reject) => {
+      video.onloadeddata = resolve;
+      video.onerror = () => reject(new Error('Не удалось подготовить видео к сжатию'));
+    });
+
+    const capture = video.captureStream?.bind(video) || video.mozCaptureStream?.bind(video);
+    if (!capture) return file;
+    const sourceStream = capture();
+    const chunks = [];
+    const recorder = new MediaRecorder(sourceStream, {
+      mimeType,
+      videoBitsPerSecond:VIDEO_TARGET_BITRATE,
+      audioBitsPerSecond:VIDEO_AUDIO_BITRATE
+    });
+
+    const result = new Promise((resolve, reject) => {
+      recorder.ondataavailable = event => {
+        if (event.data?.size) chunks.push(event.data);
+      };
+      recorder.onerror = event => reject(event.error || new Error('Ошибка сжатия видео'));
+      recorder.onstop = () => resolve(new Blob(chunks, {type:mimeType.split(';')[0]}));
+    });
+
+    recorder.start(1000);
+    await video.play();
+    await new Promise(resolve => {
+      const timeout = setTimeout(resolve, Math.ceil((duration + 1) * 1000));
+      video.onended = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
+    });
+    if (recorder.state !== 'inactive') recorder.stop();
+    const blob = await result;
+    sourceStream.getTracks().forEach(track => track.stop());
+    if (!blob.size || blob.size >= file.size) return file;
+    return new File([blob], mediaFileNameWithExtension(file.name, 'webm'), {
+      type:blob.type || 'video/webm',
+      lastModified:Date.now()
+    });
+  } catch (error) {
+    console.warn('Видео оставлено без дополнительного сжатия', error);
+    return file;
+  } finally {
+    video.pause();
+    URL.revokeObjectURL(sourceUrl);
+  }
+}
+
+async function prepareMediaFile(file) {
+  if (String(file.type || '').startsWith('image/')) {
+    return await compressImageFile(file);
+  }
+  if (String(file.type || '').startsWith('video/')) {
+    const duration = await getVideoDurationSeconds(file);
+    if (duration > MAX_MEDIA_VIDEO_SECONDS + 0.25) {
+      throw new Error(`Видео «${file.name || 'без названия'}» длится ${Math.ceil(duration)} сек. Максимум — 30 сек.`);
+    }
+    return await compressVideoFile(file, duration);
+  }
+  return file;
+}
+
 async function saveMediaFiles(files, trtId, visitId=null, taskId=null, purpose=null) {
   const maxSize = 80 * 1024 * 1024;
-  for (const file of files) {
+  for (const originalFile of files) {
+    let file;
+    try {
+      file = await prepareMediaFile(originalFile);
+    } catch (error) {
+      showToast(error.message || `Файл ${originalFile.name || ''} пропущен`);
+      continue;
+    }
     if (file.size > maxSize) {
       showToast(`Файл ${file.name} больше 80 МБ и пропущен`);
       continue;
@@ -4209,11 +4363,26 @@ function bindEvents() {
   $('visit-video-button').addEventListener('click', () => $('visit-video-input').click());
   $('visit-photo-input').addEventListener('change', event => {
     visitFiles.push(...Array.from(event.target.files || []));
+    event.target.value = '';
     updateVisitFilesNote();
   });
-  $('visit-video-input').addEventListener('change', event => {
-    visitFiles.push(...Array.from(event.target.files || []));
-    updateVisitFilesNote();
+  $('visit-video-input').addEventListener('change', async event => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const duration = await getVideoDurationSeconds(file);
+      if (duration > MAX_MEDIA_VIDEO_SECONDS + 0.25) {
+        showToast(`Видео длится ${Math.ceil(duration)} сек. Максимум на один визит — 30 сек.`);
+        return;
+      }
+      visitFiles = visitFiles.filter(item => !String(item.type || '').startsWith('video/'));
+      visitFiles.push(file);
+      updateVisitFilesNote();
+      showToast('Видео добавлено. При сохранении оно будет оптимизировано.');
+    } catch (error) {
+      showToast(error.message || 'Не удалось прочитать видео');
+    }
   });
 
   $('mobile-import-button').addEventListener('click', () => $('mobile-import-input').click());
