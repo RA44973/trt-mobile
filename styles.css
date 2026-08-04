@@ -1236,3 +1236,194 @@ body,
   letter-spacing: .04em !important;
   text-transform: uppercase !important;
 }
+
+
+/* v3.6 — единая геометрия карточки ТРТ */
+#detail-overlay {
+  --trt-card-radius: 16px;
+  --trt-card-bg: #ffffff;
+  --trt-main-bg: #f1f4f8;
+  --trt-line-soft: #edf0f4;
+  --trt-handle: #d5dae2;
+}
+
+#detail-overlay,
+#detail-overlay .detail-body,
+#detail-overlay #tab-info {
+  background: var(--trt-main-bg) !important;
+}
+
+/* Убираем пустой контейнер прежней вкладки, который создавал большой отступ после шапки. */
+#detail-overlay .detail-body.trt-layout-v35 > #tab-info {
+  display: none !important;
+}
+
+#detail-overlay .detail-body.trt-layout-v35 {
+  padding: 0 14px 24px !important;
+}
+
+/* Шапка -> Направление/Менеджер строго 14 px. */
+#detail-overlay .detail-header {
+  margin: 0 14px 14px !important;
+  width: calc(100% - 28px) !important;
+  min-height: 58px !important;
+  border: 0 !important;
+  border-radius: var(--trt-card-radius) !important;
+  background: var(--trt-card-bg) !important;
+  box-shadow: 0 2px 8px rgba(16,24,40,.07) !important;
+}
+
+/* Все светлые блоки — одинаково белые и слегка отделены от фона. */
+#detail-overlay .trt-info-grid .info-box,
+#detail-overlay .fourp-trt-card,
+#detail-overlay .trt-sales-button,
+#detail-overlay .trt-sales-expanded,
+#detail-overlay .trt-archive-tabs .tab-button {
+  background: var(--trt-card-bg) !important;
+  border: 0 !important;
+  border-radius: var(--trt-card-radius) !important;
+  box-shadow: 0 2px 8px rgba(16,24,40,.06) !important;
+}
+
+#detail-overlay .trt-summary-card {
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#detail-overlay .trt-info-grid {
+  gap: 10px !important;
+}
+
+#detail-overlay .trt-info-grid .info-box {
+  min-height: 92px !important;
+  padding: 14px 18px !important;
+}
+
+/* Рейтинг и продажи одинаковы по форме и компактнее по высоте. */
+#detail-overlay .fourp-trt-card {
+  position: relative !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+#detail-overlay .fourp-trt-toggle {
+  position: relative !important;
+  min-height: 94px !important;
+  padding: 14px 18px 24px !important;
+  border: 0 !important;
+  border-radius: var(--trt-card-radius) !important;
+  background: var(--trt-card-bg) !important;
+}
+
+#detail-overlay .fourp-trt-details-wrap {
+  padding: 2px 18px 16px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: var(--trt-card-bg) !important;
+}
+
+#detail-overlay .trt-sales-button {
+  min-height: 94px !important;
+  padding: 14px 18px 24px !important;
+  margin: 0 !important;
+  box-shadow: 0 2px 8px rgba(16,24,40,.06) !important;
+}
+
+#detail-overlay .trt-sales-button.open {
+  border-radius: var(--trt-card-radius) var(--trt-card-radius) 0 0 !important;
+  box-shadow: 0 2px 8px rgba(16,24,40,.04) !important;
+}
+
+#detail-overlay .trt-sales-expanded {
+  margin: 0 0 10px !important;
+  padding: 0 14px 14px !important;
+  border-radius: 0 0 var(--trt-card-radius) var(--trt-card-radius) !important;
+  box-shadow: 0 5px 8px rgba(16,24,40,.05) !important;
+}
+
+/* Вместо стрелок — одинаковые светлые полоски. */
+#detail-overlay .fourp-trt-chevron,
+#detail-overlay .trt-sales-chevron {
+  position: absolute !important;
+  left: 50% !important;
+  bottom: 8px !important;
+  width: 72px !important;
+  height: 6px !important;
+  transform: translateX(-50%) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: transparent !important;
+}
+
+#detail-overlay .fourp-trt-chevron.open,
+#detail-overlay .trt-sales-button.open .trt-sales-chevron {
+  transform: translateX(-50%) !important;
+}
+
+#detail-overlay .fourp-trt-chevron svg,
+#detail-overlay .trt-sales-chevron svg {
+  display: none !important;
+}
+
+#detail-overlay .trt-expand-bar,
+#detail-overlay .fourp-trt-chevron::before,
+#detail-overlay .trt-sales-chevron::before {
+  content: '';
+  display: block;
+  width: 72px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--trt-handle);
+}
+
+#detail-overlay .trt-expand-bar + .trt-expand-bar {
+  display: none;
+}
+
+/* Если старый SVG остался в кэше, всё равно рисуем только полоску через псевдоэлемент. */
+#detail-overlay .fourp-trt-chevron:has(.trt-expand-bar)::before,
+#detail-overlay .trt-sales-chevron:has(.trt-expand-bar)::before {
+  display: none;
+}
+
+/* Заголовки разделов выравниваем по левому краю надписи НАПРАВЛЕНИЕ. */
+#detail-overlay #trt-actions-label,
+#detail-overlay #trt-archive-label {
+  padding-left: 18px !important;
+  padding-right: 18px !important;
+}
+
+/* Архивные кнопки остаются белыми; только Визит и Задача — фирменные синие. */
+#detail-overlay .trt-work-actions button {
+  background: #3b63a0 !important;
+  color: #fff !important;
+  border: 0 !important;
+  box-shadow: 0 3px 8px rgba(59,99,160,.18) !important;
+}
+
+#detail-overlay .trt-archive-tabs .tab-button {
+  color: #344054 !important;
+}
+
+#detail-overlay .trt-archive-tabs .tab-button.active {
+  background: var(--trt-card-bg) !important;
+  color: #344054 !important;
+  box-shadow: 0 2px 8px rgba(16,24,40,.06) !important;
+}
+
+/* v3.7 — значение продаж строго по центру блока и линии раскрытия */
+#detail-overlay .trt-sales-button {
+  position: relative !important;
+}
+#detail-overlay .trt-sales-button .trt-sales-value {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
+  width: max-content !important;
+  max-width: 48% !important;
+  z-index: 2 !important;
+}
