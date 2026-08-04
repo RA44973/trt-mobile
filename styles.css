@@ -770,3 +770,151 @@ body,
     padding-right: 10px !important;
   }
 }
+
+
+/* v3.2 — вертикальная сетка и раскрывающиеся продажи */
+#detail-overlay .detail-header {
+  margin-bottom: 14px !important;
+}
+
+#detail-overlay .detail-body {
+  padding-top: 0 !important;
+}
+
+#detail-overlay #tab-info {
+  gap: 14px !important;
+}
+
+#detail-overlay .trt-summary-card,
+#detail-overlay .fourp-trt-card,
+#detail-overlay .trt-archive-tabs {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+#detail-overlay .trt-info-grid {
+  gap: 14px 10px !important;
+}
+
+#detail-overlay .trt-info-grid .info-box {
+  min-height: 82px !important;
+}
+
+#detail-overlay .trt-primary-value {
+  font-size: 18px !important;
+  font-weight: 900 !important;
+  line-height: 1.2 !important;
+}
+
+#detail-overlay .trt-sales-button {
+  grid-template-columns: minmax(0,1fr) minmax(100px,auto) 38px !important;
+  min-height: 78px !important;
+  border-radius: 18px 18px 0 0 !important;
+  padding: 13px 16px 24px !important;
+  overflow: visible !important;
+  box-shadow: 0 1px 3px rgba(16,24,40,.07) !important;
+}
+
+#detail-overlay .trt-sales-button:not(.open) {
+  border-radius: 18px !important;
+}
+
+#detail-overlay .trt-sales-button .info-label {
+  color: #667085 !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+}
+
+#detail-overlay .trt-sales-button .trt-sales-value {
+  justify-self: center !important;
+  text-align: center !important;
+}
+
+#detail-overlay .trt-sales-chart-icon {
+  width: 38px !important;
+  height: 38px !important;
+  padding: 0 !important;
+  color: #667085 !important;
+  background: transparent !important;
+}
+
+#detail-overlay .trt-sales-chart-icon svg {
+  width: 29px !important;
+  height: 29px !important;
+}
+
+#detail-overlay .trt-sales-chevron {
+  position: absolute;
+  left: 50%;
+  bottom: 1px;
+  width: 78px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #aeb3bb;
+  transform: translateX(-50%);
+  transition: transform .2s ease;
+}
+
+#detail-overlay .trt-sales-chevron svg {
+  width: 78px;
+  height: 22px;
+}
+
+#detail-overlay .trt-sales-button.open .trt-sales-chevron {
+  transform: translateX(-50%) rotate(180deg);
+}
+
+#detail-overlay .trt-sales-expanded {
+  grid-column: 1 / -1;
+  margin-top: -14px;
+  padding: 14px 10px 12px;
+  border-radius: 0 0 18px 18px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(16,24,40,.07);
+}
+
+#detail-overlay .trt-sales-expanded[hidden] {
+  display: none !important;
+}
+
+#detail-overlay .trt-inline-sales-head {
+  margin: 0 4px 8px;
+}
+
+#detail-overlay .trt-inline-sales-head .sales-legend {
+  margin: 0;
+}
+
+#detail-overlay .trt-sales-expanded .sales-svg {
+  border: 0;
+  background: #fff;
+}
+
+#detail-overlay .trt-inline-sales-empty {
+  margin: 0 !important;
+  padding: 18px 12px !important;
+  box-shadow: none !important;
+}
+
+#detail-overlay .trt-section-label,
+#detail-overlay .trt-archive-label {
+  margin-top: 0 !important;
+  margin-bottom: 9px !important;
+}
+
+#detail-overlay .trt-work-actions {
+  gap: 10px !important;
+}
+
+#detail-overlay .trt-work-actions button,
+#detail-overlay .trt-archive-tabs .tab-button {
+  min-height: 58px !important;
+  font-size: 18px !important;
+  font-weight: 900 !important;
+}
+
+#detail-overlay .trt-archive-tabs {
+  gap: 10px !important;
+}

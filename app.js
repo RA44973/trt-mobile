@@ -2936,17 +2936,42 @@ function configureTrtInfoUi() {
     if (!salesBox.querySelector('.trt-sales-chart-icon')) {
       const icon = document.createElement('span');
       icon.className = 'trt-sales-chart-icon';
-      icon.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16v2H2V3h2v16Zm3-3 4-5 3 3 5-7 1.6 1.2-6.4 8.8-3.1-3.1-2.6 3.2L7 16Z"/></svg>';
+      icon.innerHTML = '<svg viewBox="0 0 28 28" aria-hidden="true"><rect x="3" y="14" width="5" height="10" rx="1.5"/><rect x="11.5" y="8" width="5" height="16" rx="1.5"/><rect x="20" y="3" width="5" height="21" rx="1.5"/></svg>';
       salesBox.appendChild(icon);
+    }
+    if (!salesBox.querySelector('.trt-sales-chevron')) {
+      const chevron = document.createElement('span');
+      chevron.className = 'trt-sales-chevron';
+      chevron.setAttribute('aria-hidden', 'true');
+      chevron.innerHTML = '<svg viewBox="0 0 48 24"><path d="M5 5 L24 16 L43 5" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      salesBox.appendChild(chevron);
+    }
+    if (!salesBox.nextElementSibling?.classList.contains('trt-sales-expanded')) {
+      const expanded = document.createElement('div');
+      expanded.className = 'trt-sales-expanded';
+      expanded.hidden = true;
+      expanded.innerHTML = '<div id="trt-sales-inline-chart"></div>';
+      salesBox.insertAdjacentElement('afterend', expanded);
     }
     if (salesBox.dataset.boundSales !== '1') {
       salesBox.dataset.boundSales = '1';
-      const openSales = () => setDetailTab('sales');
-      salesBox.addEventListener('click', openSales);
+      const toggleSales = () => {
+        const expanded = salesBox.nextElementSibling?.classList.contains('trt-sales-expanded')
+          ? salesBox.nextElementSibling
+          : null;
+        if (!expanded) return;
+        const willOpen = expanded.hidden;
+        expanded.hidden = !willOpen;
+        salesBox.classList.toggle('open', willOpen);
+        salesBox.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        if (willOpen) renderInlineSalesChart();
+      };
+      salesBox.setAttribute('aria-expanded', 'false');
+      salesBox.addEventListener('click', toggleSales);
       salesBox.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
-          openSales();
+          toggleSales();
         }
       });
     }
@@ -3050,7 +3075,7 @@ function ensureTrtWorkspaceUi() {
   ensureFourPTrtCardUi();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v3.1';
+  if (version) version.textContent = 'v3.2';
 }
 
 function switchScreen(name) {
@@ -3152,6 +3177,27 @@ function niceSalesMax(value) {
   else if (normalized <= 2) factor = 2;
   else if (normalized <= 5) factor = 5;
   return factor * power;
+}
+
+function renderInlineSalesChart() {
+  const trt = selectedTrt();
+  const container = $('trt-sales-inline-chart');
+  if (!trt || !container) return;
+
+  if (!hasSales(trt)) {
+    container.innerHTML = '<div class="empty-state trt-inline-sales-empty"><h3>Продажи не загружены</h3></div>';
+    return;
+  }
+
+  const unit = trt.unit || '';
+  const values25 = SALES_MONTHS.map((_, index) => salesNumber(salesArray(trt, 2025)[index]));
+  const values26 = SALES_MONTHS.map((_, index) => salesNumber(salesArray(trt, 2026)[index]));
+  container.innerHTML = `
+    <div class="sales-card-head trt-inline-sales-head">
+      <div class="sales-legend"><span><i class="legend-2025"></i>2025</span><span><i class="legend-2026"></i>2026</span></div>
+      <span class="sales-unit">${escapeHtml(unit)}</span>
+    </div>
+    ${buildSalesChartSvg(values25, values26, unit)}`;
 }
 
 function buildSalesChartSvg(values25, values26, unit) {
