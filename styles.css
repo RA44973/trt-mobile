@@ -1733,3 +1733,15 @@ body,
   justify-self: auto !important;
   margin: 0 !important;
 }
+
+
+/* v4.5 — содержимое Архива всегда ниже всех кнопок */
+#detail-overlay .detail-body.trt-layout-v35 > .tab-panel {
+  order: 9 !important;
+  width: 100% !important;
+  margin: 14px 0 0 !important;
+}
+#detail-overlay .detail-body.trt-layout-v35 > #tab-info,
+#detail-overlay .detail-body.trt-layout-v35 > #tab-sales {
+  display: none !important;
+}

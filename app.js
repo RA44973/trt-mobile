@@ -3096,7 +3096,7 @@ function ensureTrtWorkspaceUi() {
   enforceTrtCardLayoutV35();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v4.4';
+  if (version) version.textContent = 'v4.5';
 }
 
 
@@ -3213,10 +3213,15 @@ async function saveSelectedTrt() {
 
 function setDetailTab(name) {
   const mediaName = name === 'media' ? 'photos' : name;
+  const detailBody = document.querySelector('#detail-overlay .detail-body');
+  const archiveTabs = document.querySelector('#detail-overlay .trt-archive-tabs');
   document.querySelectorAll('.tab-button').forEach(button => button.classList.toggle('active', button.dataset.tab === mediaName));
   document.querySelectorAll('.tab-panel').forEach(panel => {
     const expected = (mediaName === 'photos' || mediaName === 'videos') ? 'tab-media' : `tab-${mediaName}`;
     panel.classList.toggle('active', panel.id === expected);
+    if (detailBody && archiveTabs && panel.parentElement === detailBody) {
+      detailBody.appendChild(panel);
+    }
   });
   if (mediaName === 'sales') renderSales();
   if (mediaName === 'visits') renderVisits();
