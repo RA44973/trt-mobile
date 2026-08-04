@@ -2387,3 +2387,260 @@ body,
   left: auto !important;
   right: auto !important;
 }
+
+
+/* v6.0 — единый интерфейс МП: без верхней шапки, общий радиус, единые поиски и формы выбора */
+:root { --mp-radius: 14px; }
+
+.topbar { display:none !important; }
+.app-shell { min-height:100dvh !important; padding-bottom:calc(72px + env(safe-area-inset-bottom)) !important; }
+.screen-inner { padding:10px 14px 18px !important; }
+
+/* Карта: поиск максимально высоко, белое поле и белая GPS-кнопка одной высоты */
+#screen-map { position:relative; min-height:calc(100dvh - 72px - env(safe-area-inset-bottom)); }
+#screen-map .map-toolbar {
+  top:calc(10px + env(safe-area-inset-top)) !important;
+  left:12px !important;
+  right:12px !important;
+  gap:8px !important;
+  align-items:stretch !important;
+}
+#map-search,
+#screen-map .search-box {
+  height:50px !important;
+  min-height:50px !important;
+  border:0 !important;
+  border-radius:var(--mp-radius) !important;
+  background-color:#fff !important;
+  box-shadow:0 4px 16px rgba(16,24,40,.14) !important;
+}
+#map-location-button,
+#screen-map .floating-button {
+  width:50px !important;
+  height:50px !important;
+  flex:0 0 50px !important;
+  border-radius:var(--mp-radius) !important;
+  background:#fff !important;
+  box-shadow:0 4px 16px rgba(16,24,40,.14) !important;
+}
+#screen-map #map {
+  height:calc(100dvh - 72px - env(safe-area-inset-bottom)) !important;
+  min-height:420px !important;
+}
+.offline-banner:not(.hidden) + .app-shell #screen-map .map-toolbar {
+  top:calc(38px + env(safe-area-inset-top)) !important;
+}
+
+/* Единая строка поиска: белая заливка и лупа слева на всех журналах */
+#map-search,
+#points-search,
+#tasks-search,
+#visits-journal-search,
+input[type="search"] {
+  min-height:50px !important;
+  border:0 !important;
+  border-radius:var(--mp-radius) !important;
+  background-color:#fff !important;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5' fill='none' stroke='%232f3338' stroke-width='2.2'/%3E%3Cpath d='M15.5 15.5 21 21' fill='none' stroke='%232f3338' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+  background-repeat:no-repeat !important;
+  background-position:16px center !important;
+  background-size:23px 23px !important;
+  padding-left:49px !important;
+  padding-right:16px !important;
+  color:#17202a !important;
+  box-shadow:0 1px 3px rgba(16,24,40,.08) !important;
+}
+
+/* Точки: всё поднято после удаления общей шапки */
+#screen-points .screen-inner { padding-top:10px !important; }
+#screen-points .points-heading-row { margin:0 0 10px !important; }
+#screen-points .list-toolbar { margin-bottom:12px !important; align-items:stretch !important; }
+#screen-points .add-point-button,
+#screen-points #points-filter,
+#screen-points .unified-select-trigger[data-select-id="points-filter"] {
+  width:132px !important;
+  flex:0 0 132px !important;
+  min-height:50px !important;
+  border-radius:var(--mp-radius) !important;
+}
+#screen-points .add-point-button {
+  background:#79bd8b !important;
+  border-color:#62a976 !important;
+  color:#12391d !important;
+}
+
+/* Нижняя навигация больше не квадратная */
+.bottom-nav {
+  height:72px !important;
+  grid-template-columns:repeat(5,1fr) !important;
+  gap:4px !important;
+  padding:5px 6px calc(5px + env(safe-area-inset-bottom)) !important;
+  background:rgba(255,255,255,.98) !important;
+}
+.nav-button {
+  min-width:0 !important;
+  border-radius:var(--mp-radius) !important;
+  background:#fff !important;
+  transition:background .18s ease,color .18s ease,transform .18s ease !important;
+}
+.nav-button.active { background:#eaf0f8 !important; }
+.nav-button:active { transform:scale(.98); }
+
+/* Leaflet: кнопки + и − в стиле МП */
+.leaflet-control-zoom {
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+.leaflet-control-zoom a,
+.leaflet-bar a,
+.leaflet-bar a:first-child,
+.leaflet-bar a:last-child {
+  width:42px !important;
+  height:42px !important;
+  line-height:42px !important;
+  margin:0 0 7px !important;
+  border:0 !important;
+  border-radius:var(--mp-radius) !important;
+  background:#fff !important;
+  color:#355a93 !important;
+  box-shadow:0 3px 12px rgba(16,24,40,.14) !important;
+}
+.leaflet-control-zoom a:last-child { margin-bottom:0 !important; }
+
+/* Эталон радиуса: кнопка «Визит» КТРТ. Прямоугольные элементы используют один радиус. */
+.primary-button,
+.secondary-button,
+.danger-button,
+.icon-button,
+.floating-button,
+.search-box,
+.text-input,
+.select-input,
+.text-area,
+.date-input,
+.add-point-button,
+.visit-result-trigger,
+.unified-select-trigger,
+.card,
+.trt-item,
+.task-card,
+.visit-journal-card,
+.task-journal-card,
+.timeline-item,
+.info-box,
+.tabs,
+.tab-button,
+.media-card,
+.import-zone,
+.notice,
+.toast,
+.empty-state,
+.sales-summary-card,
+.trt-work-actions button,
+.trt-archive-tabs .tab-button,
+.task-media-button,
+.visit-media-button,
+.task-create-header,
+.shared-fullscreen-card-header-fallback {
+  border-radius:var(--mp-radius) !important;
+}
+/* Круглые служебные элементы остаются круглыми. */
+.round-close-button,
+.visit-picker-close,
+.task-create-close,
+.counter-pill,
+.meta-chip,
+.marker-dot,
+.fourp-star { border-radius:999px !important; }
+
+/* Все одиночные поля выбора открываются в единой форме, как «Цель визита». */
+.unified-select-source {
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+  overflow:hidden !important;
+}
+.unified-select-trigger {
+  width:100%;
+  min-height:52px;
+  border:1px solid #d0d5dd;
+  border-radius:var(--mp-radius);
+  background:#fff;
+  color:#17202a;
+  padding:10px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  text-align:left;
+  font-weight:500;
+}
+.unified-select-trigger.empty { color:#98a2b3; }
+.unified-select-trigger svg { width:20px;height:20px;flex:0 0 20px;fill:none;stroke:#667085;stroke-width:2;stroke-linecap:round;stroke-linejoin:round; }
+.unified-select-trigger:disabled { background:#f5f7fa;color:#98a2b3; }
+.list-toolbar .unified-select-trigger { min-height:50px; }
+#tasks-filter + .unified-select-trigger,
+#visits-journal-filter + .unified-select-trigger { width:132px;flex:0 0 132px; }
+.unified-select-picker .modal-sheet { border-radius:var(--mp-radius) var(--mp-radius) 0 0 !important; }
+.unified-select-options { display:grid;gap:8px;max-height:54vh;overflow:auto;padding:2px 0; }
+.unified-select-option {
+  width:100%;
+  min-height:52px;
+  border:1px solid #e4e7ec;
+  border-radius:var(--mp-radius);
+  background:#fff;
+  color:#17202a;
+  padding:11px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  text-align:left;
+  font-weight:700;
+}
+.unified-select-option.selected { border-color:#355a93;background:#eef3fa;color:#27456f; }
+.unified-select-check { opacity:0;color:#355a93;font-size:18px;font-weight:900; }
+.unified-select-option.selected .unified-select-check { opacity:1; }
+
+/* КЗ и КВ используют одинаковое полноэкранное движение слева направо. */
+#task-modal,
+#visit-modal {
+  display:flex !important;
+  visibility:hidden;
+  opacity:0;
+  pointer-events:none;
+  align-items:stretch !important;
+  justify-content:flex-start !important;
+  padding:0 !important;
+  transition:opacity .20s ease, visibility 0s linear .32s !important;
+}
+#task-modal.open,
+#visit-modal.open {
+  visibility:visible;
+  opacity:1;
+  pointer-events:auto;
+  transition:opacity .20s ease, visibility 0s linear 0s !important;
+}
+#task-modal .modal-sheet,
+#visit-modal .modal-sheet {
+  transform:translateX(-100%) !important;
+  transition:transform .30s cubic-bezier(.22,.61,.36,1) !important;
+  will-change:transform;
+}
+#task-modal.open .modal-sheet,
+#visit-modal.open .modal-sheet { transform:translateX(0) !important; }
+
+/* Поля КЗ сохраняют согласованную сетку «Срок | Приоритет». */
+#task-modal .task-timing-row {
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
+  gap:12px !important;
+}
+
+@media (max-width:380px) {
+  #screen-points .add-point-button,
+  #screen-points .unified-select-trigger[data-select-id="points-filter"] { width:118px !important;flex-basis:118px !important; }
+}

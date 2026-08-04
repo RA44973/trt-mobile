@@ -719,7 +719,7 @@ function normalizedVisitResults(visit) {
 
 function visitResultSummary(visit) {
   const {items, other} = normalizedVisitResults(visit);
-  return [...items, ...(other ? [other] : [])].join(' • ') || 'Результат не указан';
+  return [...items, ...(other ? [other] : [])].join(' • ') || 'Цель не указана';
 }
 
 function setVisitResultSelection(items=[], other='') {
@@ -747,7 +747,7 @@ function updateVisitResultTrigger() {
   trigger.classList.toggle('empty', values.length === 0);
   trigger.innerHTML = values.length
     ? `<span>${values.map(escapeHtml).join('</span><span>')}</span>`
-    : '<span>Выберите результат</span>';
+    : '<span>Выберите цель</span>';
 }
 
 function renderVisitResultPicker() {
@@ -782,7 +782,7 @@ function collectVisitResults() {
   const values = [...items, ...(otherResult ? [otherResult] : [])];
 
   if (!values.length) {
-    showToast('Выберите хотя бы один результат визита');
+    showToast('Выберите хотя бы одну цель визита');
     return null;
   }
 
@@ -1003,7 +1003,7 @@ function ensureVisitWorkflowUi() {
       trigger.id = 'visit-result-trigger';
       trigger.type = 'button';
       trigger.className = 'visit-result-trigger empty';
-      trigger.innerHTML = '<span>Выберите цель визита</span>';
+      trigger.innerHTML = '<span>Выберите цель</span>';
       originalResult.insertAdjacentElement('afterend', trigger);
       trigger.addEventListener('click', openVisitResultPicker);
     }
@@ -1263,7 +1263,7 @@ async function apiRequest(path, options={}) {
 
 function updateAccountUi() {
   if (!$('account-full-name')) return;
-  $('account-full-name').textContent = currentUser?.full_name || '—';
+  $('account-full-name').textContent = shortPersonName(currentUser?.full_name || currentUser?.display_name) || '—';
   $('account-login').textContent = currentUser?.login || '—';
   $('account-role').textContent = currentUser?.role_label || currentUser?.role || '—';
   $('account-connection').textContent = authOffline ? 'Офлайн' : 'Онлайн';
@@ -1345,7 +1345,7 @@ async function handleLogin(event) {
     authOffline = false;
     $('password-input').value = '';
     await showApp();
-    showToast(`Вход выполнен: ${currentUser?.full_name || login}`);
+    showToast(`Вход выполнен: ${shortPersonName(currentUser?.full_name || currentUser?.display_name) || login}`);
   } catch (error) {
     setLoginStatus(error.message || 'Не удалось выполнить вход.');
   } finally {
@@ -2764,9 +2764,9 @@ function openTaskDetails(taskId, mode='view') {
   $('task-detail-description').textContent = task.description || 'Описание не указано';
   $('task-detail-summary').innerHTML = `
     <div class="task-detail-box"><span>ТРТ</span><b>${escapeHtml(trt?.client || '—')}</b></div>
-    <div class="task-detail-box"><span>Исполнитель</span><b>${escapeHtml(task.assignee || currentUser?.full_name || '—')}</b></div>
-    <div class="task-detail-box"><span>Постановщик</span><b>${escapeHtml(task.createdBy || currentUser?.full_name || '—')}</b></div>
-    <div class="task-detail-box"><span>Наблюдатель</span><b>${escapeHtml(task.observer || '—')}</b></div>
+    <div class="task-detail-box"><span>Исполнитель</span><b>${escapeHtml(shortPersonName(task.assignee || currentUser?.full_name) || '—')}</b></div>
+    <div class="task-detail-box"><span>Постановщик</span><b>${escapeHtml(shortPersonName(task.createdBy || currentUser?.full_name) || '—')}</b></div>
+    <div class="task-detail-box"><span>Наблюдатель</span><b>${escapeHtml(shortPersonName(task.observer) || '—')}</b></div>
     <div class="task-detail-box"><span>Срок</span><b>${escapeHtml(formatDate(task.dueDate))}</b></div>
     <div class="task-detail-box"><span>Приоритет</span><b>${escapeHtml(task.priority || 'Средний')}</b></div>
     <div class="task-detail-box"><span>Статус</span><b>${task.status === 'done' ? 'Выполнена' : 'Открыта'}</b></div>
@@ -2893,7 +2893,8 @@ function renderStats() {
   $('stat-visits').textContent = visits.length;
   $('stat-tasks').textContent = tasks.length;
   $('stat-media').textContent = mediaItems.length;
-  $('topbar-subtitle').textContent = trts.length ? `${trts.length} ТРТ · ${tasks.filter(t => t.status !== 'done').length} открытых задач` : 'VOG Мобильный помощник';
+  const topbarSubtitle = $('topbar-subtitle');
+  if (topbarSubtitle) topbarSubtitle.textContent = trts.length ? `${trts.length} ТРТ · ${tasks.filter(t => t.status !== 'done').length} открытых задач` : 'VOG Мобильный помощник';
   updateAccountUi();
 }
 
@@ -2914,6 +2915,7 @@ function renderAll() {
 
 function shortPersonName(value) {
   const parts = String(value || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '';
   return parts.slice(0, 2).join(' ');
 }
 
@@ -3950,7 +3952,7 @@ function fillTaskEmployeeSelects() {
 
   if (assignee) {
     assignee.innerHTML = names.length
-      ? names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('')
+      ? names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(shortPersonName(name))}</option>`).join('')
       : '<option value="">Сотрудник не выбран</option>';
     if (currentName && names.includes(currentName)) assignee.value = currentName;
   }
@@ -3958,10 +3960,12 @@ function fillTaskEmployeeSelects() {
   if (observer) {
     observer.innerHTML = [
       '<option value="">Без наблюдателя</option>',
-      ...names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+      ...names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(shortPersonName(name))}</option>`)
     ].join('');
     observer.value = '';
   }
+  enhanceUnifiedSelects(assignee || document);
+  enhanceUnifiedSelects(observer || document);
 }
 
 function setTaskVoiceButtonState(listening) {
@@ -4334,6 +4338,262 @@ async function clearAllData() {
 }
 
 
+
+let unifiedSelectCurrent = null;
+let unifiedSelectDraftValue = '';
+let unifiedSelectObserver = null;
+
+function unifiedSelectIsPerson(select) {
+  return ['task-assignee', 'task-observer'].includes(select?.id || '');
+}
+
+function unifiedSelectOptionText(select, option) {
+  const raw = String(option?.textContent || option?.label || option?.value || '').trim();
+  return unifiedSelectIsPerson(select) ? shortPersonName(raw) : raw;
+}
+
+function unifiedSelectTitle(select) {
+  const direct = select?.id ? document.querySelector(`label[for="${select.id}"]`) : null;
+  const groupLabel = select?.closest('.field-group')?.querySelector('.field-label');
+  return String(direct?.textContent || groupLabel?.textContent || select?.getAttribute('aria-label') || 'Выберите значение')
+    .replace(/\s*\*\s*$/, '')
+    .trim();
+}
+
+function unifiedSelectTriggerText(select) {
+  const selected = Array.from(select?.options || []).find(option => option.value === select.value)
+    || select?.selectedOptions?.[0]
+    || null;
+  const text = unifiedSelectOptionText(select, selected);
+  return text || 'Выберите значение';
+}
+
+function unifiedSelectIgnored(select) {
+  return !select
+    || select.id === 'visit-result'
+    || select.dataset.unifiedSelectIgnore === '1';
+}
+
+function syncUnifiedSelectTrigger(select) {
+  if (unifiedSelectIgnored(select)) return;
+  let trigger = select.nextElementSibling;
+  if (!trigger?.classList?.contains('unified-select-trigger')) {
+    trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'unified-select-trigger';
+    trigger.dataset.selectId = select.id || '';
+    trigger.setAttribute('aria-haspopup', 'dialog');
+    select.insertAdjacentElement('afterend', trigger);
+    trigger.addEventListener('click', () => openUnifiedSelectPicker(select));
+    select.addEventListener('change', () => syncUnifiedSelectTrigger(select));
+  }
+
+  select.classList.add('unified-select-source');
+  select.tabIndex = -1;
+  trigger.disabled = Boolean(select.disabled);
+  trigger.classList.toggle('empty', !String(select.value || '').trim());
+  trigger.innerHTML = `<span>${escapeHtml(unifiedSelectTriggerText(select))}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
+  trigger.setAttribute('aria-label', `${unifiedSelectTitle(select)}: ${unifiedSelectTriggerText(select)}`);
+}
+
+function enhanceUnifiedSelects(root=document) {
+  const list = [];
+  if (root?.matches?.('select')) list.push(root);
+  root?.querySelectorAll?.('select').forEach(select => list.push(select));
+  list.forEach(syncUnifiedSelectTrigger);
+}
+
+function ensureUnifiedSelectPicker() {
+  if ($('unified-select-picker')) return;
+  const picker = document.createElement('div');
+  picker.id = 'unified-select-picker';
+  picker.className = 'modal-backdrop unified-select-picker';
+  picker.innerHTML = `
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="visit-goal-picker-head">
+        <h2 id="unified-select-title" class="modal-title">Выберите значение</h2>
+        <button id="unified-select-close" class="visit-picker-close" type="button" aria-label="Закрыть">×</button>
+      </div>
+      <div id="unified-select-options" class="unified-select-options"></div>
+      <div class="visit-result-actions">
+        <button id="unified-select-cancel" class="secondary-button" type="button">Отмена</button>
+        <button id="unified-select-apply" class="primary-button" type="button">Готово</button>
+      </div>
+    </div>`;
+  document.body.appendChild(picker);
+  $('unified-select-close').addEventListener('click', closeUnifiedSelectPicker);
+  $('unified-select-cancel').addEventListener('click', closeUnifiedSelectPicker);
+  $('unified-select-apply').addEventListener('click', applyUnifiedSelectPicker);
+  picker.addEventListener('click', event => {
+    if (event.target === picker) closeUnifiedSelectPicker();
+  });
+}
+
+function renderUnifiedSelectOptions() {
+  const container = $('unified-select-options');
+  if (!container || !unifiedSelectCurrent) return;
+  const options = Array.from(unifiedSelectCurrent.options || []).filter(option => !option.disabled);
+  container.innerHTML = options.length ? options.map(option => {
+    const selected = option.value === unifiedSelectDraftValue;
+    return `<button class="unified-select-option${selected ? ' selected' : ''}" type="button" data-unified-value="${escapeHtml(option.value)}">
+      <span>${escapeHtml(unifiedSelectOptionText(unifiedSelectCurrent, option) || 'Не выбрано')}</span>
+      <span class="unified-select-check" aria-hidden="true">✓</span>
+    </button>`;
+  }).join('') : '<div class="file-note">Нет доступных значений</div>';
+
+  container.querySelectorAll('[data-unified-value]').forEach(button => {
+    button.addEventListener('click', () => {
+      unifiedSelectDraftValue = button.dataset.unifiedValue || '';
+      renderUnifiedSelectOptions();
+    });
+  });
+}
+
+function openUnifiedSelectPicker(select) {
+  if (unifiedSelectIgnored(select) || select.disabled) return;
+  ensureUnifiedSelectPicker();
+  unifiedSelectCurrent = select;
+  unifiedSelectDraftValue = String(select.value || '');
+  $('unified-select-title').textContent = unifiedSelectTitle(select);
+  renderUnifiedSelectOptions();
+  $('unified-select-picker').classList.add('open');
+}
+
+function closeUnifiedSelectPicker() {
+  $('unified-select-picker')?.classList.remove('open');
+  unifiedSelectCurrent = null;
+  unifiedSelectDraftValue = '';
+}
+
+function applyUnifiedSelectPicker() {
+  const select = unifiedSelectCurrent;
+  if (!select) return closeUnifiedSelectPicker();
+  select.value = unifiedSelectDraftValue;
+  select.dispatchEvent(new Event('input', {bubbles:true}));
+  select.dispatchEvent(new Event('change', {bubbles:true}));
+  syncUnifiedSelectTrigger(select);
+  closeUnifiedSelectPicker();
+}
+
+function ensureUnifiedSelectUi() {
+  ensureUnifiedSelectPicker();
+  enhanceUnifiedSelects(document);
+  if (unifiedSelectObserver) return;
+  unifiedSelectObserver = new MutationObserver(mutations => {
+    mutations.forEach(mutation => {
+      if (mutation.type === 'attributes' && mutation.target?.matches?.('select')) {
+        syncUnifiedSelectTrigger(mutation.target);
+      }
+      if (mutation.type === 'childList') {
+        if (mutation.target?.matches?.('select')) syncUnifiedSelectTrigger(mutation.target);
+        mutation.addedNodes.forEach(node => {
+          if (node.nodeType === 1) enhanceUnifiedSelects(node);
+        });
+      }
+    });
+  });
+  unifiedSelectObserver.observe(document.body, {subtree:true, childList:true, attributes:true, attributeFilter:['disabled']});
+}
+
+
+function ensureV60FinalUi() {
+  if ($('v60-final-ui-style')) return;
+  const style = document.createElement('style');
+  style.id = 'v60-final-ui-style';
+  style.textContent = `
+    :root{--mp-radius:14px}
+    html body .topbar{display:none!important}
+    html body .app-shell{padding-bottom:calc(72px + env(safe-area-inset-bottom))!important}
+    html body .screen-inner{padding-top:10px!important}
+
+    html body #map-search,
+    html body #points-search,
+    html body #tasks-search,
+    html body #visits-journal-search,
+    html body input[type="search"]{
+      background-color:#fff!important;
+      border-radius:var(--mp-radius)!important;
+    }
+    html body #screen-map .map-toolbar{top:calc(10px + env(safe-area-inset-top))!important}
+    html body .offline-banner:not(.hidden) + .app-shell #screen-map .map-toolbar{top:calc(38px + env(safe-area-inset-top))!important}
+    html body #map-location-button{width:50px!important;height:50px!important;flex-basis:50px!important;background:#fff!important;border-radius:var(--mp-radius)!important}
+
+    html body button:not(.round-close-button):not(.visit-picker-close):not(.task-create-close),
+    html body input:not([type="checkbox"]):not([type="radio"]),
+    html body textarea,
+    html body select,
+    html body .card,
+    html body .trt-item,
+    html body .task-card,
+    html body .trt-journal-card,
+    html body .task-journal-card,
+    html body .visit-journal-card,
+    html body .timeline-item,
+    html body .info-box,
+    html body .tabs,
+    html body .tab-button,
+    html body .media-card,
+    html body .empty-state,
+    html body .import-zone,
+    html body .notice,
+    html body .toast,
+    html body .visit-result-trigger,
+    html body .unified-select-trigger,
+    html body .unified-select-option{
+      border-radius:var(--mp-radius)!important;
+    }
+    html body .round-close-button,
+    html body .visit-picker-close,
+    html body .task-create-close,
+    html body .counter-pill,
+    html body .meta-chip,
+    html body .marker-dot{border-radius:999px!important}
+
+    html body #task-modal,
+    html body #visit-modal{
+      display:flex!important;
+      visibility:hidden;
+      opacity:0;
+      pointer-events:none;
+      align-items:stretch!important;
+      justify-content:flex-start!important;
+      padding:0!important;
+      transition:opacity .2s ease,visibility 0s linear .32s!important;
+    }
+    html body #task-modal.open,
+    html body #visit-modal.open{
+      visibility:visible;
+      opacity:1;
+      pointer-events:auto;
+      transition:opacity .2s ease,visibility 0s linear 0s!important;
+    }
+    html body #task-modal .modal-sheet,
+    html body #visit-modal .modal-sheet{
+      transform:translateX(-100%)!important;
+      transition:transform .3s cubic-bezier(.22,.61,.36,1)!important;
+    }
+    html body #task-modal.open .modal-sheet,
+    html body #visit-modal.open .modal-sheet{transform:translateX(0)!important}
+
+    html body #task-modal .task-timing-row{
+      display:grid!important;
+      grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+      gap:12px!important;
+    }
+    html body #task-modal .task-timing-row .field-group{min-width:0!important;margin:0!important}
+
+    html body .leaflet-control-zoom{border:0!important;background:transparent!important;box-shadow:none!important}
+    html body .leaflet-control-zoom a,
+    html body .leaflet-bar a:first-child,
+    html body .leaflet-bar a:last-child{
+      border-radius:var(--mp-radius)!important;
+      background:#fff!important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 let pointPickerMap = null;
 let pointPickerMarker = null;
 let pointDraftCoordinates = null;
@@ -4346,6 +4606,7 @@ function fillSelectOptions(select, values, preferred='') {
   const items = uniqueSortedValues(values);
   select.innerHTML = items.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
   if (preferred && items.includes(preferred)) select.value = preferred;
+  syncUnifiedSelectTrigger(select);
 }
 function availableDirectionsForNewPoint() {
   const values = trts.map(item => item.direction);
@@ -4355,12 +4616,13 @@ function availableDirectionsForNewPoint() {
 }
 function availableFormatsForNewPoint() { return uniqueSortedValues(trts.map(item => item.format)); }
 function resetPointCreateForm() {
-  $('point-manager').value = currentUser?.full_name || currentUser?.display_name || '';
+  $('point-manager').value = shortPersonName(currentUser?.full_name || currentUser?.display_name);
   fillSelectOptions($('point-direction'), availableDirectionsForNewPoint(), currentUser?.direction || '');
   fillSelectOptions($('point-format'), availableFormatsForNewPoint());
   $('point-client').value = '';
   $('point-address').value = '';
   $('point-status').value = 'АКБ';
+  syncUnifiedSelectTrigger($('point-status'));
   $('point-map-note').textContent = 'Нажмите на нужное здание или место. Адрес и координаты заполнятся автоматически.';
   pointDraftCoordinates = null;
   if (pointPickerMarker && pointPickerMap) { pointPickerMap.removeLayer(pointPickerMarker); pointPickerMarker = null; }
@@ -4426,6 +4688,8 @@ function bindEvents() {
   ensureTaskCreationUi();
   ensureTrtWorkspaceUi();
   ensureVisitWorkflowUi();
+  ensureUnifiedSelectUi();
+  ensureV60FinalUi();
 
   document.querySelectorAll('.nav-button').forEach(button => {
     button.addEventListener('click', () => switchScreen(button.dataset.screen));
@@ -4441,7 +4705,7 @@ function bindEvents() {
   $('tasks-filter').addEventListener('change', renderTasks);
 
   $('map-location-button').addEventListener('click', () => locateUser(false));
-  $('quick-nearest-button').addEventListener('click', () => locateUser(true));
+  $('quick-nearest-button')?.addEventListener('click', () => locateUser(true));
 
   $('detail-close').addEventListener('click', closeTrt);
   $('detail-location').addEventListener('click', () => {
@@ -4554,8 +4818,8 @@ function ensureJournalAndAuthUi() {
     input[type="search"]{
       min-height:50px!important;
       border:0!important;
-      border-radius:18px!important;
-      background-color:#f0f1f3!important;
+      border-radius:14px!important;
+      background-color:#fff!important;
       background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5' fill='none' stroke='%232f3338' stroke-width='2.2'/%3E%3Cpath d='M15.5 15.5 21 21' fill='none' stroke='%232f3338' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E")!important;
       background-repeat:no-repeat!important;
       background-position:16px center!important;
@@ -4604,9 +4868,9 @@ function ensureJournalAndAuthUi() {
     .visit-journal-rating b{font-size:16px!important}
     .visit-journal-rating .fourp-star{font-size:16px!important}
 
-    #task-detail-modal,#visit-modal{display:flex!important;visibility:hidden;opacity:0;pointer-events:none;align-items:stretch!important;justify-content:flex-start!important;padding:0!important;background:rgba(15,23,42,.25)!important;transition:opacity .2s ease,visibility .2s ease}
-    #task-detail-modal.open,#visit-modal.open{visibility:visible;opacity:1;pointer-events:auto}
-    #task-detail-modal .modal-sheet,#visit-modal .modal-sheet{
+    #task-detail-modal,#visit-modal,#task-modal{display:flex!important;visibility:hidden;opacity:0;pointer-events:none;align-items:stretch!important;justify-content:flex-start!important;padding:0!important;background:rgba(15,23,42,.25)!important;transition:opacity .2s ease,visibility .2s ease}
+    #task-detail-modal.open,#visit-modal.open,#task-modal.open{visibility:visible;opacity:1;pointer-events:auto}
+    #task-detail-modal .modal-sheet,#visit-modal .modal-sheet,#task-modal .modal-sheet{
       width:100vw!important;
       max-width:none!important;
       height:100dvh!important;
@@ -4621,8 +4885,8 @@ function ensureJournalAndAuthUi() {
       box-shadow:none!important;
       will-change:transform;
     }
-    #task-detail-modal.open .modal-sheet,#visit-modal.open .modal-sheet{transform:translateX(0)}
-    #task-detail-modal .modal-handle,#visit-modal .modal-handle{display:none!important}
+    #task-detail-modal.open .modal-sheet,#visit-modal.open .modal-sheet,#task-modal.open .modal-sheet{transform:translateX(0)}
+    #task-detail-modal .modal-handle,#visit-modal .modal-handle,#task-modal .modal-handle{display:none!important}
     #visit-modal.visit-readonly textarea,#visit-modal.visit-readonly input,#visit-modal.visit-readonly select{background:#f5f7fa!important;color:#344054!important;opacity:1!important}
     .visit-edit-notice.readonly{background:#fff1f0!important;color:#b42318!important}
   `;
