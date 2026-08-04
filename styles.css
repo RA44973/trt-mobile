@@ -1156,3 +1156,83 @@ body,
   letter-spacing: .04em !important;
   text-transform: uppercase !important;
 }
+
+
+/* v3.5 — физическая раскладка карточки ТРТ и точные интервалы */
+#detail-overlay .detail-body.trt-layout-v35 {
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 0 14px 24px !important;
+}
+
+#detail-overlay .detail-body.trt-layout-v35 > * {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+#detail-overlay .detail-body.trt-layout-v35 .trt-summary-card,
+#detail-overlay .detail-body.trt-layout-v35 .fourp-trt-card,
+#detail-overlay .detail-body.trt-layout-v35 .trt-sales-button,
+#detail-overlay .detail-body.trt-layout-v35 .trt-sales-expanded,
+#detail-overlay .detail-body.trt-layout-v35 .trt-work-actions,
+#detail-overlay .detail-body.trt-layout-v35 .trt-archive-tabs,
+#detail-overlay .detail-body.trt-layout-v35 .trt-section-label {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* Шапка -> Направление/Менеджер = 14 px */
+#detail-overlay .detail-header { margin-bottom: 14px !important; }
+
+/* Направление/Менеджер -> Рейтинг = 14 px */
+#detail-overlay .detail-body.trt-layout-v35 .trt-summary-card { margin: 0 0 14px !important; }
+
+/* Рейтинг -> Продажи = 14 px */
+#detail-overlay .detail-body.trt-layout-v35 .fourp-trt-card { margin: 0 0 14px !important; }
+
+/* Продажи -> Действия = 10 px */
+#detail-overlay .detail-body.trt-layout-v35 .trt-sales-button:not(.open) { margin: 0 0 10px !important; }
+#detail-overlay .detail-body.trt-layout-v35 .trt-sales-button.open { margin: 0 !important; }
+#detail-overlay .detail-body.trt-layout-v35 .trt-sales-expanded { margin: 0 0 10px !important; }
+
+/* Заголовок Действия -> кнопки = 10 px */
+#detail-overlay .detail-body.trt-layout-v35 #trt-actions-label { margin: 0 0 10px !important; }
+
+/* Кнопки действий -> Архив = 10 px */
+#detail-overlay .detail-body.trt-layout-v35 .trt-work-actions { margin: 0 0 10px !important; }
+
+/* Архив -> первая строка кнопок = 10 px */
+#detail-overlay .detail-body.trt-layout-v35 #trt-archive-label { margin: 0 0 10px !important; }
+
+/* Между строками архива = 14 px */
+#detail-overlay .detail-body.trt-layout-v35 .trt-archive-tabs {
+  margin: 0 !important;
+  column-gap: 10px !important;
+  row-gap: 14px !important;
+}
+
+/* Единый радиус, как у плашек Направление/Менеджер */
+#detail-overlay .detail-header,
+#detail-overlay .trt-info-grid .info-box,
+#detail-overlay .fourp-trt-card,
+#detail-overlay .trt-sales-button,
+#detail-overlay .trt-sales-expanded,
+#detail-overlay .trt-work-actions button,
+#detail-overlay .trt-archive-tabs .tab-button {
+  border-radius: 16px !important;
+}
+#detail-overlay .trt-sales-button.open { border-radius: 16px 16px 0 0 !important; }
+#detail-overlay .trt-sales-button.open + .trt-sales-expanded { border-radius: 0 0 16px 16px !important; }
+
+/* Три служебных заголовка — как НАПРАВЛЕНИЕ */
+#detail-overlay .trt-sales-button .info-label,
+#detail-overlay #trt-actions-label,
+#detail-overlay #trt-archive-label {
+  color: #667085 !important;
+  font-size: 10px !important;
+  font-weight: 400 !important;
+  line-height: 1.2 !important;
+  letter-spacing: .04em !important;
+  text-transform: uppercase !important;
+}

@@ -3086,9 +3086,30 @@ function ensureTrtWorkspaceUi() {
   configureTrtInfoUi();
   ensureFourPVisitUi();
   ensureFourPTrtCardUi();
+  enforceTrtCardLayoutV35();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v3.4';
+  if (version) version.textContent = 'v3.5';
+}
+
+
+function enforceTrtCardLayoutV35() {
+  const body = document.querySelector('#detail-overlay .detail-body');
+  const summary = document.querySelector('#detail-overlay .trt-summary-card');
+  const rating = document.querySelector('#detail-overlay .fourp-trt-card');
+  const sales = document.querySelector('#detail-overlay .trt-sales-button');
+  const salesExpanded = document.querySelector('#detail-overlay .trt-sales-expanded');
+  const actionLabel = document.querySelector('#detail-overlay #trt-actions-label');
+  const actions = document.querySelector('#detail-overlay .trt-work-actions');
+  const archiveLabel = document.querySelector('#detail-overlay #trt-archive-label');
+  const archiveTabs = document.querySelector('#detail-overlay .trt-archive-tabs');
+  if (!body || !summary || !rating || !sales || !actionLabel || !actions || !archiveLabel || !archiveTabs) return;
+
+  [summary, rating, sales, salesExpanded, actionLabel, actions, archiveLabel, archiveTabs]
+    .filter(Boolean)
+    .forEach(node => body.appendChild(node));
+
+  body.classList.add('trt-layout-v35');
 }
 
 function switchScreen(name) {
