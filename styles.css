@@ -1532,3 +1532,40 @@ body,
   top: 50% !important;
   transform: translateY(-50%) !important;
 }
+
+/* v3.9 — точное выравнивание итогового рейтинга и статуса */
+#detail-overlay .fourp-trt-score-block {
+  width: 86px !important;
+  justify-self: end !important;
+  display: grid !important;
+  grid-template-rows: auto auto !important;
+  justify-items: stretch !important;
+  row-gap: 5px !important;
+}
+#detail-overlay .fourp-trt-toggle-score {
+  width: 86px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0,1fr) 52px !important;
+  align-items: center !important;
+  column-gap: 8px !important;
+}
+#detail-overlay #trt-fourp-stars {
+  justify-self: end !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+#detail-overlay #trt-fourp-total {
+  width: 52px !important;
+  min-width: 52px !important;
+  justify-self: end !important;
+  text-align: right !important;
+}
+#detail-overlay .trt-status-placeholder {
+  width: 52px !important;
+  justify-self: end !important;
+  text-align: right !important;
+  color: #8b919b !important;
+  font-size: 15px !important;
+  font-weight: 850 !important;
+  letter-spacing: .06em !important;
+}
