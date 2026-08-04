@@ -2956,7 +2956,7 @@ function configureTrtInfoUi() {
       const chevron = document.createElement('span');
       chevron.className = 'trt-sales-chevron';
       chevron.setAttribute('aria-hidden', 'true');
-      chevron.innerHTML = '<span class="trt-expand-bar"></span>';
+      chevron.innerHTML = '<svg viewBox="0 0 72 24" focusable="false" aria-hidden="true"><path d="M4 7 L36 16 L68 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
       salesBox.appendChild(chevron);
     }
     if (!salesBox.nextElementSibling?.classList.contains('trt-sales-expanded')) {
@@ -3089,7 +3089,7 @@ function ensureTrtWorkspaceUi() {
   enforceTrtCardLayoutV35();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v3.7';
+  if (version) version.textContent = 'v3.8';
 }
 
 
