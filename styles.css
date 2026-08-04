@@ -708,3 +708,65 @@ body,
   .fourp-trt-line b{font-size:20px}
   .fourp-trt-toggle-score .fourp-star{font-size:17px}
 }
+
+/* v3.1 — единая горизонтальная сетка карточки ТРТ */
+#detail-overlay .detail-header {
+  width: calc(100% - 28px) !important;
+  margin-left: 14px !important;
+  margin-right: 14px !important;
+}
+
+#detail-overlay .detail-body {
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+}
+
+#detail-overlay #tab-info,
+#detail-overlay .trt-summary-card,
+#detail-overlay .fourp-trt-card,
+#detail-overlay .trt-info-grid,
+#detail-overlay .trt-sales-button,
+#detail-overlay .trt-work-actions,
+#detail-overlay .trt-archive-tabs {
+  width: 100% !important;
+  max-width: none !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+#detail-overlay .trt-section-label,
+#detail-overlay .trt-archive-label {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+#detail-overlay .trt-info-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+#detail-overlay .trt-info-grid .info-box,
+#detail-overlay .trt-work-actions button,
+#detail-overlay .trt-archive-tabs .tab-button {
+  min-width: 0 !important;
+}
+
+#detail-overlay #tab-sales,
+#detail-overlay #tab-visits,
+#detail-overlay #tab-media,
+#detail-overlay #tab-tasks {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+@media (max-width: 360px) {
+  #detail-overlay .detail-header {
+    width: calc(100% - 20px) !important;
+    margin-left: 10px !important;
+    margin-right: 10px !important;
+  }
+
+  #detail-overlay .detail-body {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+}

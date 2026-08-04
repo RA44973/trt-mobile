@@ -3050,7 +3050,7 @@ function ensureTrtWorkspaceUi() {
   ensureFourPTrtCardUi();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v3.0';
+  if (version) version.textContent = 'v3.1';
 }
 
 function switchScreen(name) {
