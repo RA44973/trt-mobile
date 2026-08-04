@@ -594,6 +594,7 @@ function ensureFourPTrtCardUi() {
           <span id="trt-status-placeholder" class="trt-status-placeholder">АКБ</span>
         </span>
       </span>
+      <span id="trt-format-placeholder" class="trt-format-placeholder"></span>
       <span id="trt-fourp-chevron" class="fourp-trt-chevron" aria-hidden="true">
         <svg viewBox="0 0 72 24" focusable="false" aria-hidden="true">
           <path d="M4 7 L36 16 L68 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -3095,7 +3096,7 @@ function ensureTrtWorkspaceUi() {
   enforceTrtCardLayoutV35();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v4.1';
+  if (version) version.textContent = 'v4.2';
 }
 
 
@@ -3147,17 +3148,28 @@ function closeTrt() {
   $('detail-overlay').setAttribute('aria-hidden', 'true');
 }
 
+function stripTrtFormatFromTitle(value, format) {
+  const title = String(value || '').trim();
+  const suffix = String(format || '').trim();
+  if (!title || !suffix) return title;
+  const escaped = suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return title.replace(new RegExp(`\\s*[—–-]\\s*${escaped}\\s*$`, 'i'), '').trim();
+}
+
 function renderSelectedTrt() {
   const trt = selectedTrt();
   if (!trt) return;
 
   configureTrtInfoUi();
-  $('detail-title').textContent = trt.client || trt.holding || 'ТРТ';
+  const rawTitle = trt.client || trt.holding || 'ТРТ';
+  $('detail-title').textContent = stripTrtFormatFromTitle(rawTitle, trt.format) || rawTitle;
   $('detail-address').textContent = trt.address || '';
   $('detail-direction').textContent = trt.direction || '—';
   $('detail-manager').textContent = shortPersonName(trt.manager) || '—';
   const statusPlaceholder = $('trt-status-placeholder');
   if (statusPlaceholder) statusPlaceholder.textContent = 'АКБ';
+  const formatPlaceholder = $('trt-format-placeholder');
+  if (formatPlaceholder) formatPlaceholder.textContent = String(trt.format || '').trim();
   const salesValue = $('detail-size');
   if (salesValue) {
     salesValue.classList.add('trt-sales-value');

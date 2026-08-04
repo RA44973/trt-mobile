@@ -1627,3 +1627,94 @@ body,
   align-items: center !important;
   justify-content: center !important;
 }
+
+
+/* v4.2 — типографика карточки, формат ТРТ и точное выравнивание иконки */
+#detail-overlay .detail-title {
+  font-size: 19px !important;
+}
+#detail-overlay .detail-address {
+  font-size: 13px !important;
+}
+#detail-overlay .trt-info-grid .info-label,
+#detail-overlay .trt-sales-button .info-label,
+#detail-overlay #trt-actions-label,
+#detail-overlay #trt-archive-label {
+  font-size: 11px !important;
+}
+#detail-overlay .trt-primary-value {
+  font-size: 19px !important;
+}
+#detail-overlay .fourp-trt-toggle-title {
+  font-size: 20px !important;
+}
+#detail-overlay .fourp-trt-toggle-score .fourp-star {
+  font-size: 20px !important;
+}
+#detail-overlay .fourp-trt-line span {
+  font-size: 17px !important;
+}
+#detail-overlay .fourp-trt-line b {
+  font-size: 23px !important;
+}
+#detail-overlay #trt-fourp-total {
+  font-size: 24px !important;
+}
+#detail-overlay .trt-status-placeholder,
+#detail-overlay .trt-format-placeholder {
+  color: #8b919b !important;
+  font-size: 16px !important;
+  font-weight: 850 !important;
+  line-height: 1.1 !important;
+  letter-spacing: .06em !important;
+  text-transform: uppercase !important;
+}
+#detail-overlay .trt-format-placeholder {
+  position: absolute !important;
+  left: 18px !important;
+  bottom: 13px !important;
+  max-width: calc(100% - 150px) !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  text-align: left !important;
+}
+#detail-overlay .trt-status-placeholder {
+  width: 52px !important;
+  justify-self: end !important;
+  text-align: right !important;
+}
+#detail-overlay .fourp-trt-toggle {
+  position: relative !important;
+  padding-bottom: 30px !important;
+}
+#detail-overlay .trt-sales-button .trt-sales-unit-label {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: #667085 !important;
+}
+#detail-overlay .trt-sales-number {
+  font-size: 49px !important;
+}
+#detail-overlay .trt-sales-chart-icon {
+  position: absolute !important;
+  right: 18px !important;
+  top: 50% !important;
+  left: auto !important;
+  bottom: auto !important;
+  transform: translateY(-50%) !important;
+  margin: 0 !important;
+  justify-self: auto !important;
+  align-self: auto !important;
+}
+#detail-overlay .trt-work-actions button {
+  font-size: 17px !important;
+}
+#detail-overlay .trt-archive-tabs .tab-button {
+  font-size: 16px !important;
+}
+@media (max-width:360px) {
+  #detail-overlay .fourp-trt-line span { font-size: 16px !important; }
+  #detail-overlay .fourp-trt-line b { font-size: 21px !important; }
+  #detail-overlay #trt-fourp-total { font-size: 22px !important; }
+}
