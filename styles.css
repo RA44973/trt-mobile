@@ -1592,3 +1592,38 @@ body,
     font-size: 21px !important;
   }
 }
+
+
+/* v4.1 — отступ после шапки, единица измерения слева и выравнивание иконки */
+#detail-overlay .detail-header {
+  margin-bottom: 14px !important;
+}
+#detail-overlay .trt-sales-button .trt-sales-unit-label {
+  position: absolute !important;
+  left: 18px !important;
+  top: 34px !important;
+  margin: 0 !important;
+  color: #667085 !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  line-height: 1.1 !important;
+  letter-spacing: .04em !important;
+  text-transform: uppercase !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+}
+#detail-overlay .trt-sales-button .trt-sales-value {
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+}
+#detail-overlay .trt-sales-chart-icon {
+  right: 18px !important;
+  top: 50% !important;
+  bottom: auto !important;
+  transform: translateY(-50%) !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}

@@ -2942,6 +2942,12 @@ function configureTrtInfoUi() {
   if (salesBox) {
     const salesLabel = salesBox.querySelector('.info-label');
     if (salesLabel) salesLabel.textContent = 'ПРОДАЖИ / МЕС.';
+    let salesUnitLabel = salesBox.querySelector('.trt-sales-unit-label');
+    if (!salesUnitLabel) {
+      salesUnitLabel = document.createElement('span');
+      salesUnitLabel.className = 'trt-sales-unit-label';
+      salesBox.appendChild(salesUnitLabel);
+    }
     salesBox.classList.add('trt-sales-button');
     salesBox.setAttribute('role', 'button');
     salesBox.setAttribute('tabindex', '0');
@@ -3089,7 +3095,7 @@ function ensureTrtWorkspaceUi() {
   enforceTrtCardLayoutV35();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v4.0';
+  if (version) version.textContent = 'v4.1';
 }
 
 
@@ -3156,10 +3162,10 @@ function renderSelectedTrt() {
   if (salesValue) {
     salesValue.classList.add('trt-sales-value');
     salesValue.parentElement?.classList.add('trt-sales-field');
+    const salesUnitLabel = salesValue.parentElement?.querySelector('.trt-sales-unit-label');
+    if (salesUnitLabel) salesUnitLabel.textContent = trt.unit || '';
     if (Number.isFinite(Number(trt.size))) {
-      salesValue.innerHTML = `
-        <span class="trt-sales-number">${Math.round(Number(trt.size)).toLocaleString('ru-RU')}</span>
-        ${trt.unit ? `<span class="trt-sales-unit">${escapeHtml(trt.unit)}</span>` : ''}`;
+      salesValue.innerHTML = `<span class="trt-sales-number">${Math.round(Number(trt.size)).toLocaleString('ru-RU')}</span>`;
     } else {
       salesValue.textContent = '—';
     }
