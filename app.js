@@ -1780,6 +1780,7 @@ async function replaceTrts(importedPoints) {
       holding:String(item.holding || item.client || ''),
       address:String(item.address || ''),
       format:String(item.format || ''),
+      status:String(item.status || 'АКБ'),
       direction:String(item.direction || ''),
       manager:String(item.manager || ''),
       region:String(item.region || ''),
@@ -4309,6 +4310,95 @@ async function clearAllData() {
   showToast('Данные приложения удалены');
 }
 
+
+let pointPickerMap = null;
+let pointPickerMarker = null;
+let pointDraftCoordinates = null;
+
+function uniqueSortedValues(values) {
+  return [...new Set(values.map(value => String(value || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
+}
+function fillSelectOptions(select, values, preferred='') {
+  if (!select) return;
+  const items = uniqueSortedValues(values);
+  select.innerHTML = items.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+  if (preferred && items.includes(preferred)) select.value = preferred;
+}
+function availableDirectionsForNewPoint() {
+  const values = trts.map(item => item.direction);
+  const ownDirection = String(currentUser?.direction || '').trim();
+  if (ownDirection) values.push(ownDirection);
+  return uniqueSortedValues(values);
+}
+function availableFormatsForNewPoint() { return uniqueSortedValues(trts.map(item => item.format)); }
+function resetPointCreateForm() {
+  $('point-manager').value = currentUser?.full_name || currentUser?.display_name || '';
+  fillSelectOptions($('point-direction'), availableDirectionsForNewPoint(), currentUser?.direction || '');
+  fillSelectOptions($('point-format'), availableFormatsForNewPoint());
+  $('point-client').value = '';
+  $('point-address').value = '';
+  $('point-status').value = 'АКБ';
+  $('point-map-note').textContent = 'Нажмите на нужное здание или место. Адрес и координаты заполнятся автоматически.';
+  pointDraftCoordinates = null;
+  if (pointPickerMarker && pointPickerMap) { pointPickerMap.removeLayer(pointPickerMarker); pointPickerMarker = null; }
+}
+function pickerInitialCenter() {
+  if (map && map.getCenter) { const center = map.getCenter(); return [center.lat, center.lng]; }
+  if (trts.length) return [trts[0].lat, trts[0].lon];
+  return [55.75, 37.62];
+}
+async function reverseGeocodePoint(lat, lon) {
+  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&accept-language=ru&zoom=18&addressdetails=1`;
+  const response = await fetch(url, {headers:{'Accept':'application/json'}});
+  if (!response.ok) throw new Error('Не удалось определить адрес');
+  const payload = await response.json();
+  return String(payload.display_name || '').trim();
+}
+async function choosePointOnMap(latlng) {
+  const lat = Number(latlng.lat), lon = Number(latlng.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+  pointDraftCoordinates = {lat, lon};
+  if (pointPickerMarker) pointPickerMarker.setLatLng([lat, lon]); else pointPickerMarker = L.marker([lat, lon]).addTo(pointPickerMap);
+  $('point-map-note').textContent = 'Определяем адрес…';
+  try {
+    const address = await reverseGeocodePoint(lat, lon);
+    $('point-address').value = address || `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+    $('point-map-note').textContent = `Координаты: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+  } catch (error) {
+    $('point-address').value = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+    $('point-map-note').textContent = 'Адрес автоматически не определён. Координаты сохранены.';
+  }
+}
+function ensurePointPickerMap() {
+  if (!window.L) { $('point-map-note').textContent = 'Карта временно недоступна. Откройте приложение при наличии интернета.'; return; }
+  if (!pointPickerMap) {
+    pointPickerMap = L.map('point-picker-map', {attributionControl:false}).setView(pickerInitialCenter(), 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, crossOrigin:true}).addTo(pointPickerMap);
+    pointPickerMap.on('click', event => choosePointOnMap(event.latlng));
+  } else pointPickerMap.setView(pickerInitialCenter(), Math.max(pointPickerMap.getZoom(), 13));
+  setTimeout(() => pointPickerMap.invalidateSize(), 80);
+}
+function openPointCreateModal() { resetPointCreateForm(); $('point-create-modal').classList.add('open'); ensurePointPickerMap(); }
+function closePointCreateModal() { $('point-create-modal').classList.remove('open'); }
+async function saveNewPoint() {
+  const client = String($('point-client').value || '').trim();
+  const direction = String($('point-direction').value || '').trim();
+  const format = String($('point-format').value || '').trim();
+  const status = String($('point-status').value || '').trim();
+  const address = String($('point-address').value || '').trim();
+  if (!client) return showToast('Укажите клиента');
+  if (!direction) return showToast('Выберите направление деятельности');
+  if (!format) return showToast('Выберите формат ТРТ');
+  if (!address || !pointDraftCoordinates) return showToast('Укажите точку на карте');
+  const button = $('save-point-button'); button.disabled = true; button.textContent = 'Сохраняем…';
+  try {
+    const result = await apiRequest('/trt', {method:'POST', timeout:30000, body:{client, direction, format, status, address, lat:pointDraftCoordinates.lat, lon:pointDraftCoordinates.lon}});
+    closePointCreateModal(); await syncTrtsWithServer({silent:true}); await refreshData(); switchScreen('points'); showToast('ТРТ добавлена');
+    if (result?.point?.id) setTimeout(() => openTrt(String(result.point.id)), 100);
+  } catch (error) { showToast(error.message || 'Не удалось добавить ТРТ'); }
+  finally { button.disabled = false; button.textContent = 'Добавить ТРТ'; }
+}
+
 function bindEvents() {
   ensureTaskCreationUi();
   ensureTrtWorkspaceUi();
@@ -4321,6 +4411,9 @@ function bindEvents() {
   $('map-search').addEventListener('input', renderMap);
   $('points-search').addEventListener('input', renderPoints);
   $('points-filter').addEventListener('change', renderPoints);
+  $('add-point-button').addEventListener('click', openPointCreateModal);
+  $('point-create-close').addEventListener('click', closePointCreateModal);
+  $('save-point-button').addEventListener('click', saveNewPoint);
   $('tasks-search').addEventListener('input', renderTasks);
   $('tasks-filter').addEventListener('change', renderTasks);
 

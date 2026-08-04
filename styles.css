@@ -2232,3 +2232,18 @@ body,
 }
 
 /* v5.2 — сжатие фото и ограничение видео выполняются в app.js */
+
+
+/* v5.3 — добавление новой ТРТ */
+.add-point-button{width:100%;min-height:48px;margin:0 0 14px;border:1px solid #a9d6b4;border-radius:16px;background:#dff3e4;color:#285b36;font:700 17px/1.2 inherit;box-shadow:0 4px 12px rgba(40,91,54,.08);cursor:pointer}
+.add-point-button:active{transform:translateY(1px)}
+.point-create-sheet{position:relative;padding-top:18px}
+.round-close-button{position:absolute;right:16px;top:14px;z-index:3;width:32px;height:32px;border-radius:50%;border:1px solid #cfd8e6;background:#fff;color:#6b778c;font:400 24px/28px inherit;text-align:center;cursor:pointer}
+.point-create-modal .field-group{margin-bottom:14px}
+.point-create-modal .text-input,.point-create-modal .select-input,.point-create-modal .text-area{border-radius:16px;background:#fff}
+.point-create-modal .text-input[readonly],.point-create-modal .text-area[readonly]{background:#f8fafc;color:#536176}
+.point-address{min-height:72px;resize:none}
+#point-picker-map{width:100%;height:300px;border-radius:16px;overflow:hidden;border:1px solid #d7dfeb;background:#edf1f6}
+.point-map-group{margin-top:2px}
+#point-map-note{margin-top:8px;line-height:1.35}
+@media (max-height:720px){#point-picker-map{height:240px}}

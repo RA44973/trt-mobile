@@ -41,7 +41,7 @@
 <div class="app-shell hidden">
   <header class="topbar">
     <div>
-      <div class="topbar-title">ТРТ <span style="font-size:11px;color:#98a2b3;font-weight:700;">v2.9</span></div>
+      <div class="topbar-title">ТРТ <span style="font-size:11px;color:#98a2b3;font-weight:700;">v5.3</span></div>
       <div id="topbar-subtitle" class="topbar-subtitle">Мобильный помощник</div>
     </div>
     <button id="quick-nearest-button" class="icon-button" type="button" aria-label="Найти ближайшую точку" title="Ближайшая ТРТ">
@@ -67,6 +67,7 @@
     <section id="screen-points" class="screen">
       <div class="screen-inner">
         <h2 class="section-title">Торговые точки <span id="points-count" class="counter-pill">0</span></h2>
+        <button id="add-point-button" class="add-point-button" type="button">Добавить</button>
         <div class="list-toolbar">
           <input id="points-search" type="search" placeholder="Название, адрес, менеджер">
           <select id="points-filter">
@@ -353,9 +354,28 @@
   </div>
 </div>
 
+
+<div id="point-create-modal" class="modal-backdrop point-create-modal">
+  <div class="modal-sheet point-create-sheet">
+    <button id="point-create-close" class="round-close-button" type="button" aria-label="Закрыть">×</button>
+    <div class="modal-handle"></div>
+    <h2 class="modal-title">Новая ТРТ</h2>
+    <div class="field-group"><label class="field-label" for="point-manager">Менеджер</label><input id="point-manager" class="text-input" type="text" readonly></div>
+    <div class="field-group"><label class="field-label" for="point-direction">Направление деятельности</label><select id="point-direction" class="select-input"></select></div>
+    <div class="field-group"><label class="field-label" for="point-client">Клиент</label><input id="point-client" class="text-input" type="text" placeholder="Наименование клиента"></div>
+    <div class="field-group"><label class="field-label" for="point-address">Торговая точка.Месторасположение</label><textarea id="point-address" class="text-area point-address" readonly placeholder="Укажите точку на карте"></textarea></div>
+    <div class="form-grid">
+      <div class="field-group"><label class="field-label" for="point-format">Формат ТРТ</label><select id="point-format" class="select-input"></select></div>
+      <div class="field-group"><label class="field-label" for="point-status">Статус ТРТ</label><select id="point-status" class="select-input"><option value="АКБ">АКБ</option><option value="НАКБ">НАКБ</option><option value="ЦАКБ">ЦАКБ</option><option value="ЦНАКБ">ЦНАКБ</option></select></div>
+    </div>
+    <div class="field-group point-map-group"><label class="field-label">Укажите точку на карте</label><div id="point-picker-map"></div><div id="point-map-note" class="file-note">Нажмите на нужное здание или место. Адрес и координаты заполнятся автоматически.</div></div>
+    <div class="modal-actions"><button class="secondary-button modal-cancel" type="button">Отмена</button><button id="save-point-button" class="primary-button" type="button">Добавить ТРТ</button></div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="./app.js?v=5.2-media-limits"></script>
+<script src="./app.js?v=5.3-add-point"></script>
 </body>
 </html>
