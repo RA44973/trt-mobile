@@ -2644,3 +2644,14 @@ input[type="search"] {
   #screen-points .add-point-button,
   #screen-points .unified-select-trigger[data-select-id="points-filter"] { width:118px !important;flex-basis:118px !important; }
 }
+
+
+/* v6.1 — тёмная активная навигация, единый поиск, фильтры и исправление прокрутки КЗ */
+.nav-button.active{background:#d3dfef!important;color:#203f69!important}
+.bottom-nav.nav-four{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+.bottom-nav.nav-five{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+.bottom-nav .nav-button[hidden]{display:none!important}
+#screen-points .list-toolbar input[type="search"],#screen-visits-journal .list-toolbar input[type="search"]{height:50px!important;min-height:50px!important;border:0!important;background:#fff!important;box-shadow:0 4px 16px rgba(16,24,40,.14)!important}
+.journal-filter-button{width:50px;height:50px;min-width:50px;border:0;border-radius:var(--mp-radius)!important;background:#fff;color:#355a93;box-shadow:0 4px 16px rgba(16,24,40,.14)}
+#task-modal{background:#fff!important;overflow:hidden!important}
+#task-modal .modal-sheet{background:#fff!important;overflow-x:hidden!important;overscroll-behavior:contain!important}

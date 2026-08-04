@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="./styles.css?v=6.0-unified-ui">
+  <link rel="stylesheet" href="./styles.css?v=6.1-filters-calendar">
 </head>
 <body>
 <section id="auth-screen" class="auth-screen">
@@ -62,12 +62,13 @@
         </div>
         <div class="list-toolbar">
           <input id="points-search" type="search" placeholder="Название, адрес, менеджер" aria-label="Поиск торговых точек">
-          <select id="points-filter">
+          <select id="points-filter" data-unified-select-ignore="1" hidden>
             <option value="all">Все точки</option>
-            <option value="withTasks">С задачами</option>
-            <option value="visited">Посещённые</option>
-            <option value="withSales">С продажами</option>
           </select>
+          <button id="points-filter-button" class="journal-filter-button" type="button" aria-label="Фильтры торговых точек" title="Фильтры">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.2 7.1V18l-3.6 1.8v-7.7L4 5Z"/></svg>
+            <span class="journal-filter-count" aria-hidden="true"></span>
+          </button>
         </div>
         <div id="points-list" class="trt-list"></div>
       </div>
@@ -324,7 +325,8 @@
     <div class="form-grid task-timing-row">
       <div class="field-group">
         <label class="field-label" for="task-due">Срок</label>
-        <input id="task-due" class="date-input" type="date">
+        <input id="task-due" type="hidden">
+        <button id="task-due-trigger" class="task-date-trigger empty" type="button" aria-haspopup="dialog">Выберите дату</button>
       </div>
       <div class="field-group">
         <label class="field-label" for="task-priority">Приоритет</label>
@@ -368,6 +370,6 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="./app.js?v=6.0-unified-ui"></script>
+<script src="./app.js?v=6.1-filters-calendar"></script>
 </body>
 </html>

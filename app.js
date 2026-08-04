@@ -906,16 +906,9 @@ function renderVisitJournal() {
   if (!list) return;
 
   const query = normalizeText($('visits-journal-search')?.value || '');
-  const filter = $('visits-journal-filter')?.value || 'all';
-  const now = new Date();
-  const today = visitDateKey(now);
-  const weekAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000;
-
   const rows = visits.filter(visit => {
     const point = visitJournalPoint(visit);
-    const date = new Date(visit.createdAt);
-    if (filter === 'today' && visitDateKey(date) !== today) return false;
-    if (filter === 'week' && (!Number.isFinite(date.getTime()) || date.getTime() < weekAgo)) return false;
+    if (!point || !matchesJournalFilters(point, journalFilterState.visits, visit)) return false;
     if (!query) return true;
     return journalSearchText(
       visit,
@@ -931,7 +924,7 @@ function renderVisitJournal() {
   $('visits-journal-count').textContent = String(rows.length);
   list.innerHTML = rows.length
     ? rows.map(visitJournalCardHtml).join('')
-    : '<div class="empty-state" style="margin:0;"><h3>Визитов нет</h3><p>Новые визиты появятся здесь после сохранения.</p></div>';
+    : '<div class="empty-state" style="margin:0;"><h3>Визитов нет</h3><p>Измените поиск или фильтр.</p></div>';
 }
 
 function openVisitFromJournal(visitId) {
@@ -1104,11 +1097,13 @@ function ensureVisitWorkflowUi() {
         <h2 class="section-title">Визиты <span id="visits-journal-count" class="counter-pill">0</span></h2>
         <div class="list-toolbar">
           <input id="visits-journal-search" type="search" placeholder="Поиск по всем полям">
-          <select id="visits-journal-filter">
+          <select id="visits-journal-filter" data-unified-select-ignore="1" hidden>
             <option value="all">Все визиты</option>
-            <option value="today">Сегодня</option>
-            <option value="week">За 7 дней</option>
           </select>
+          <button id="visits-filter-button" class="journal-filter-button" type="button" aria-label="Фильтры визитов" title="Фильтры">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.2 7.1V18l-3.6 1.8v-7.7L4 5Z"/></svg>
+            <span class="journal-filter-count" aria-hidden="true"></span>
+          </button>
         </div>
         <div id="visits-journal-list" class="visit-journal-list"></div>
       </div>`;
@@ -1270,11 +1265,12 @@ function updateAccountUi() {
   $('account-connection').className = authOffline ? 'account-offline' : 'account-online';
   $('offline-banner').classList.toggle('hidden', !authOffline);
 
-  const isGd = String(currentUser?.role || '').toUpperCase() === 'GD';
+  const isAdmin = isCurrentUserAdmin();
   ['mobile-import-button', 'mobile-import-input', 'restore-backup-button', 'restore-backup-input'].forEach(id => {
     const element = $(id);
-    if (element) element.hidden = !isGd;
+    if (element) element.hidden = !isAdmin;
   });
+  updateNavigationForPermissions();
 }
 
 function showLogin(message='') {
@@ -2432,14 +2428,10 @@ function trtItemHtml(trt) {
 
 function renderPoints() {
   const query = normalizeText($('points-search').value);
-  const filter = $('points-filter').value;
-  let rows = trts.filter(trt => {
+  const rows = trts.filter(trt => {
     const text = journalSearchText(trt);
     if (query && !text.includes(query)) return false;
-    if (filter === 'withTasks' && pointOpenTasks(trt.id) === 0) return false;
-    if (filter === 'visited' && pointVisitCount(trt.id) === 0) return false;
-    if (filter === 'withSales' && !hasSales(trt)) return false;
-    return true;
+    return matchesJournalFilters(trt, journalFilterState.points);
   });
 
   $('points-count').textContent = rows.length;
@@ -4146,6 +4138,7 @@ function openTaskModal() {
   updateTaskCreationFilesNote();
   fillTaskEmployeeSelects();
   $('task-due').value = '';
+  syncTaskDueTrigger();
   $('task-priority').value = 'Средний';
   $('task-description').value = '';
   openModal('task-modal');
@@ -4344,7 +4337,7 @@ let unifiedSelectDraftValue = '';
 let unifiedSelectObserver = null;
 
 function unifiedSelectIsPerson(select) {
-  return ['task-assignee', 'task-observer'].includes(select?.id || '');
+  return ['task-assignee', 'task-observer', 'journal-filter-manager'].includes(select?.id || '');
 }
 
 function unifiedSelectOptionText(select, option) {
@@ -4684,12 +4677,387 @@ async function saveNewPoint() {
   finally { button.disabled = false; button.textContent = 'Добавить ТРТ'; }
 }
 
+
+/* v6.1 — фильтры журналов, права на Настройки и календарь КЗ */
+const EMPTY_JOURNAL_FILTERS = Object.freeze({city:'', manager:'', client:'', format:'', status:'', rating:''});
+const journalFilterState = {
+  points:{...EMPTY_JOURNAL_FILTERS},
+  visits:{...EMPTY_JOURNAL_FILTERS},
+};
+let activeJournalFilterType = 'points';
+let taskCalendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+function boolFlag(value) {
+  if (value === true || value === 1) return true;
+  return ['true','1','yes','да'].includes(String(value ?? '').trim().toLowerCase());
+}
+
+function isCurrentUserAdmin() {
+  const user = currentUser || {};
+  const explicit = user.is_admin ?? user.isAdmin ?? user.admin ?? user.administrator ?? user.has_admin_rights;
+  if (boolFlag(explicit)) return true;
+  // В текущей конфигурации административные права закреплены только за учётной записью alex.
+  return String(user.login || '').trim().toLowerCase() === 'alex';
+}
+
+function updateNavigationForPermissions() {
+  const nav = document.querySelector('.bottom-nav');
+  const settingsButton = nav?.querySelector('[data-screen="settings"]');
+  const settingsScreen = $('screen-settings');
+  if (!nav) return;
+  const admin = isCurrentUserAdmin();
+  if (settingsButton) settingsButton.hidden = !admin;
+  if (settingsScreen) settingsScreen.hidden = !admin;
+  nav.classList.toggle('nav-five', admin);
+  nav.classList.toggle('nav-four', !admin);
+  if (!admin && settingsScreen?.classList.contains('active')) switchScreen('map');
+}
+
+function journalPointCity(trt) {
+  const direct = String(trt?.city || trt?.locality || trt?.town || trt?.settlement || '').trim();
+  if (direct) return direct.replace(/^(г\.?|город|пос\.?|п\.?|с\.?|д\.?)\s*/i, '').trim();
+  const parts = String(trt?.address || '').split(',').map(item => item.trim()).filter(Boolean);
+  const marked = parts.find(item => /^(г\.?|город|пос\.?|п\.?|с\.?|д\.?)\s+/i.test(item));
+  if (marked) return marked.replace(/^(г\.?|город|пос\.?|п\.?|с\.?|д\.?)\s*/i, '').trim();
+  const candidate = parts.find(item => !/^\d{5,6}$/.test(item) && !/(россия|область|край|республика|район|округ)$/i.test(item));
+  return candidate || '';
+}
+
+function journalPointRating(trt, visit=null) {
+  const visitRating = normalizeFourPAssessment(visit?.fourP)?.totalScore;
+  if (Number.isFinite(Number(visitRating))) return Number(visitRating);
+  const latest = latestFourPVisitForTrt(trt?.id);
+  const pointRating = normalizeFourPAssessment(latest?.fourP)?.totalScore;
+  return Number.isFinite(Number(pointRating)) ? Number(pointRating) : null;
+}
+
+function journalRatingMatches(rating, selected) {
+  if (!selected) return true;
+  if (selected === 'none') return rating === null;
+  if (rating === null) return false;
+  const bucket = Number(selected);
+  if (bucket === 5) return rating >= 5;
+  return rating >= bucket && rating < bucket + 1;
+}
+
+function matchesJournalFilters(trt, filters, visit=null) {
+  if (!trt) return false;
+  const city = journalPointCity(trt);
+  const client = String(trt.client || trt.holding || '').trim();
+  const manager = String(trt.manager || '').trim();
+  const format = String(trt.format || '').trim();
+  const status = String(trt.status || '').trim();
+  if (filters.city && normalizeText(city) !== normalizeText(filters.city)) return false;
+  if (filters.manager && normalizeText(manager) !== normalizeText(filters.manager)) return false;
+  if (filters.client && normalizeText(client) !== normalizeText(filters.client)) return false;
+  if (filters.format && normalizeText(format) !== normalizeText(filters.format)) return false;
+  if (filters.status && normalizeText(status) !== normalizeText(filters.status)) return false;
+  if (!journalRatingMatches(journalPointRating(trt, visit), filters.rating)) return false;
+  return true;
+}
+
+function journalFilterCount(type) {
+  return Object.values(journalFilterState[type] || {}).filter(Boolean).length;
+}
+
+function updateJournalFilterButton(type) {
+  const id = type === 'visits' ? 'visits-filter-button' : 'points-filter-button';
+  const button = $(id);
+  if (!button) return;
+  const count = journalFilterCount(type);
+  button.classList.toggle('is-active', count > 0);
+  const badge = button.querySelector('.journal-filter-count');
+  if (badge) {
+    badge.textContent = count ? String(count) : '';
+    badge.hidden = !count;
+  }
+  button.setAttribute('aria-label', count ? `Фильтры: выбрано ${count}` : 'Открыть фильтры');
+}
+
+function filterOptionHtml(value, label=value) {
+  return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+}
+
+function setJournalFilterSelect(id, values, selected, placeholder='Все') {
+  const select = $(id);
+  if (!select) return;
+  const unique = uniqueSortedValues(values);
+  select.innerHTML = filterOptionHtml('', placeholder) + unique.map(value => filterOptionHtml(value)).join('');
+  select.value = unique.includes(selected) ? selected : '';
+  syncUnifiedSelectTrigger(select);
+}
+
+function prepareJournalFilterForm(type) {
+  const state = journalFilterState[type];
+  setJournalFilterSelect('journal-filter-city', trts.map(journalPointCity), state.city, 'Все города');
+  setJournalFilterSelect('journal-filter-manager', trts.map(item => item.manager), state.manager, 'Все менеджеры');
+  setJournalFilterSelect('journal-filter-client', trts.map(item => item.client || item.holding), state.client, 'Все клиенты');
+  setJournalFilterSelect('journal-filter-format', trts.map(item => item.format), state.format, 'Все форматы');
+  setJournalFilterSelect('journal-filter-status', trts.map(item => item.status), state.status, 'Все статусы');
+  const rating = $('journal-filter-rating');
+  if (rating) {
+    rating.innerHTML = [
+      filterOptionHtml('', 'Любой рейтинг'),
+      filterOptionHtml('none', 'Без рейтинга'),
+      filterOptionHtml('1', '1,0–1,9'),
+      filterOptionHtml('2', '2,0–2,9'),
+      filterOptionHtml('3', '3,0–3,9'),
+      filterOptionHtml('4', '4,0–4,9'),
+      filterOptionHtml('5', '5,0'),
+    ].join('');
+    rating.value = state.rating || '';
+    syncUnifiedSelectTrigger(rating);
+  }
+}
+
+function openJournalFilters(type) {
+  ensureAdvancedJournalFiltersUi();
+  activeJournalFilterType = type;
+  $('journal-filter-title').textContent = type === 'visits' ? 'Фильтры визитов' : 'Фильтры торговых точек';
+  prepareJournalFilterForm(type);
+  $('journal-filter-modal').classList.add('open');
+}
+
+function closeJournalFilters() {
+  $('journal-filter-modal')?.classList.remove('open');
+}
+
+function applyJournalFilters() {
+  const state = journalFilterState[activeJournalFilterType];
+  ['city','manager','client','format','status','rating'].forEach(key => {
+    state[key] = String($(`journal-filter-${key}`)?.value || '');
+  });
+  updateJournalFilterButton(activeJournalFilterType);
+  closeJournalFilters();
+  if (activeJournalFilterType === 'visits') renderVisitJournal();
+  else renderPoints();
+}
+
+function resetJournalFilters() {
+  journalFilterState[activeJournalFilterType] = {...EMPTY_JOURNAL_FILTERS};
+  prepareJournalFilterForm(activeJournalFilterType);
+  updateJournalFilterButton(activeJournalFilterType);
+  if (activeJournalFilterType === 'visits') renderVisitJournal();
+  else renderPoints();
+}
+
+function ensureAdvancedJournalFiltersUi() {
+  if (!$('journal-filter-modal')) {
+    const modal = document.createElement('div');
+    modal.id = 'journal-filter-modal';
+    modal.className = 'modal-backdrop journal-filter-modal';
+    modal.innerHTML = `
+      <div class="modal-sheet journal-filter-sheet">
+        <div class="modal-handle"></div>
+        <div class="visit-goal-picker-head">
+          <h2 id="journal-filter-title" class="modal-title">Фильтры</h2>
+          <button id="journal-filter-close" class="visit-picker-close" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <div class="journal-filter-grid">
+          <div class="field-group"><label class="field-label" for="journal-filter-city">Город</label><select id="journal-filter-city" class="select-input"></select></div>
+          <div class="field-group"><label class="field-label" for="journal-filter-manager">Менеджер</label><select id="journal-filter-manager" class="select-input"></select></div>
+          <div class="field-group"><label class="field-label" for="journal-filter-client">Клиент</label><select id="journal-filter-client" class="select-input"></select></div>
+          <div class="field-group"><label class="field-label" for="journal-filter-format">Формат</label><select id="journal-filter-format" class="select-input"></select></div>
+          <div class="field-group"><label class="field-label" for="journal-filter-status">Статус</label><select id="journal-filter-status" class="select-input"></select></div>
+          <div class="field-group"><label class="field-label" for="journal-filter-rating">Рейтинг</label><select id="journal-filter-rating" class="select-input"></select></div>
+        </div>
+        <div class="journal-filter-actions">
+          <button id="journal-filter-reset" class="secondary-button" type="button">Сбросить</button>
+          <button id="journal-filter-apply" class="primary-button" type="button">Применить</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    enhanceUnifiedSelects(modal);
+    $('journal-filter-close').addEventListener('click', closeJournalFilters);
+    $('journal-filter-reset').addEventListener('click', resetJournalFilters);
+    $('journal-filter-apply').addEventListener('click', applyJournalFilters);
+    modal.addEventListener('click', event => { if (event.target === modal) closeJournalFilters(); });
+  }
+  const pointsButton = $('points-filter-button');
+  if (pointsButton && pointsButton.dataset.bound !== '1') {
+    pointsButton.dataset.bound = '1';
+    pointsButton.addEventListener('click', () => openJournalFilters('points'));
+  }
+  const visitsButton = $('visits-filter-button');
+  if (visitsButton && visitsButton.dataset.bound !== '1') {
+    visitsButton.dataset.bound = '1';
+    visitsButton.addEventListener('click', () => openJournalFilters('visits'));
+  }
+  updateJournalFilterButton('points');
+  updateJournalFilterButton('visits');
+}
+
+function taskDueLabel(value) {
+  if (!value) return 'Выберите дату';
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return 'Выберите дату';
+  return new Intl.DateTimeFormat('ru-RU', {day:'numeric', month:'long', year:'numeric'}).format(new Date(year, month - 1, day));
+}
+
+function syncTaskDueTrigger() {
+  const input = $('task-due');
+  const trigger = $('task-due-trigger');
+  if (!trigger) return;
+  trigger.textContent = taskDueLabel(input?.value || '');
+  trigger.classList.toggle('empty', !input?.value);
+}
+
+function calendarIso(year, month, day) {
+  return `${year}-${String(month + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+}
+
+function renderTaskCalendar() {
+  const title = $('task-calendar-month');
+  const days = $('task-calendar-days');
+  if (!title || !days) return;
+  const year = taskCalendarMonth.getFullYear();
+  const month = taskCalendarMonth.getMonth();
+  title.textContent = new Intl.DateTimeFormat('ru-RU', {month:'long', year:'numeric'}).format(taskCalendarMonth);
+  const first = new Date(year, month, 1);
+  const offset = (first.getDay() + 6) % 7;
+  const count = new Date(year, month + 1, 0).getDate();
+  const selected = $('task-due')?.value || '';
+  const today = todayIso();
+  const cells = [];
+  for (let i=0;i<offset;i+=1) cells.push('<span class="task-calendar-empty"></span>');
+  for (let day=1;day<=count;day+=1) {
+    const iso = calendarIso(year, month, day);
+    cells.push(`<button class="task-calendar-day${iso === selected ? ' selected' : ''}${iso === today ? ' today' : ''}" type="button" data-calendar-date="${iso}">${day}</button>`);
+  }
+  days.innerHTML = cells.join('');
+  days.querySelectorAll('[data-calendar-date]').forEach(button => {
+    button.addEventListener('click', () => {
+      $('task-due').value = button.dataset.calendarDate || '';
+      syncTaskDueTrigger();
+      closeTaskCalendar();
+    });
+  });
+}
+
+function openTaskCalendar() {
+  ensureTaskCalendarUi();
+  const value = $('task-due')?.value || '';
+  if (value) {
+    const [year, month] = value.split('-').map(Number);
+    taskCalendarMonth = new Date(year, month - 1, 1);
+  } else {
+    const now = new Date();
+    taskCalendarMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+  renderTaskCalendar();
+  $('task-calendar-modal').classList.add('open');
+}
+
+function closeTaskCalendar() {
+  $('task-calendar-modal')?.classList.remove('open');
+}
+
+function ensureTaskCalendarUi() {
+  const trigger = $('task-due-trigger');
+  if (trigger && trigger.dataset.bound !== '1') {
+    trigger.dataset.bound = '1';
+    trigger.addEventListener('click', openTaskCalendar);
+  }
+  if ($('task-calendar-modal')) return;
+  const modal = document.createElement('div');
+  modal.id = 'task-calendar-modal';
+  modal.className = 'task-calendar-backdrop';
+  modal.innerHTML = `
+    <div class="task-calendar-sheet" role="dialog" aria-modal="true" aria-labelledby="task-calendar-month">
+      <div class="visit-goal-picker-head">
+        <h2 class="modal-title">Срок задачи</h2>
+        <button id="task-calendar-close" class="visit-picker-close" type="button" aria-label="Закрыть">×</button>
+      </div>
+      <div class="task-calendar-nav">
+        <button id="task-calendar-prev" type="button" aria-label="Предыдущий месяц">‹</button>
+        <strong id="task-calendar-month"></strong>
+        <button id="task-calendar-next" type="button" aria-label="Следующий месяц">›</button>
+      </div>
+      <div class="task-calendar-week"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
+      <div id="task-calendar-days" class="task-calendar-days"></div>
+      <div class="task-calendar-actions">
+        <button id="task-calendar-clear" class="secondary-button" type="button">Очистить</button>
+        <button id="task-calendar-today" class="primary-button" type="button">Сегодня</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  $('task-calendar-close').addEventListener('click', closeTaskCalendar);
+  $('task-calendar-prev').addEventListener('click', () => { taskCalendarMonth = new Date(taskCalendarMonth.getFullYear(), taskCalendarMonth.getMonth()-1, 1); renderTaskCalendar(); });
+  $('task-calendar-next').addEventListener('click', () => { taskCalendarMonth = new Date(taskCalendarMonth.getFullYear(), taskCalendarMonth.getMonth()+1, 1); renderTaskCalendar(); });
+  $('task-calendar-clear').addEventListener('click', () => { $('task-due').value=''; syncTaskDueTrigger(); closeTaskCalendar(); });
+  $('task-calendar-today').addEventListener('click', () => { $('task-due').value=todayIso(); syncTaskDueTrigger(); closeTaskCalendar(); });
+  modal.addEventListener('click', event => { if (event.target === modal) closeTaskCalendar(); });
+  syncTaskDueTrigger();
+}
+
+function ensureV61Ui() {
+  if (!document.body.dataset.v61Ui) {
+    document.body.dataset.v61Ui = '1';
+    const style = document.createElement('style');
+    style.id = 'v61-ui-style';
+    style.textContent = `
+      html,body{overflow-x:hidden!important}
+      .nav-button.active{background:#d3dfef!important;color:#203f69!important}
+      .bottom-nav.nav-four{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+      .bottom-nav.nav-five{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+      .bottom-nav .nav-button[hidden]{display:none!important}
+
+      #screen-points .list-toolbar,#screen-visits-journal .list-toolbar{display:flex!important;gap:8px!important;align-items:stretch!important}
+      #screen-points .list-toolbar input[type="search"],#screen-visits-journal .list-toolbar input[type="search"]{
+        flex:1!important;width:auto!important;height:50px!important;min-height:50px!important;border:0!important;border-radius:var(--mp-radius)!important;background-color:#fff!important;box-shadow:0 4px 16px rgba(16,24,40,.14)!important
+      }
+      .journal-filter-button{position:relative;width:50px!important;height:50px!important;min-width:50px!important;flex:0 0 50px!important;padding:0!important;border:0!important;border-radius:var(--mp-radius)!important;background:#fff!important;color:#355a93!important;box-shadow:0 4px 16px rgba(16,24,40,.14)!important;display:flex!important;align-items:center!important;justify-content:center!important}
+      .journal-filter-button svg{width:24px;height:24px;fill:currentColor}
+      .journal-filter-button.is-active{background:#e2ebf6!important;color:#203f69!important}
+      .journal-filter-count{position:absolute;right:-3px;top:-4px;min-width:19px;height:19px;padding:0 5px;border-radius:999px!important;background:#355a93;color:#fff;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #f4f6f8}
+      .journal-filter-count[hidden]{display:none!important}
+      .journal-filter-sheet{max-height:92dvh!important;overflow-y:auto!important;background:#fff!important}
+      .journal-filter-grid{display:grid;grid-template-columns:1fr;gap:0}
+      .journal-filter-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+
+      .point-create-modal .modal-title{font-size:19px!important;font-weight:900!important;line-height:1.25!important;color:#17202a!important;margin:0 0 18px!important}
+      .point-create-modal .field-label{font-size:12px!important;font-weight:750!important;line-height:1.3!important;color:#475467!important;letter-spacing:0!important;text-transform:none!important}
+      .point-create-modal .text-input,.point-create-modal .text-area,.point-create-modal .unified-select-trigger{font-size:15px!important;font-weight:500!important;line-height:1.4!important;color:#17202a!important}
+      .point-create-modal .file-note{font-size:12px!important;font-weight:500!important;line-height:1.45!important;color:#667085!important}
+      .point-create-modal .modal-actions button{font-size:15px!important;font-weight:800!important}
+
+      .task-date-trigger{width:100%;min-height:52px;border:1px solid #d0d5dd;border-radius:var(--mp-radius);background:#fff;color:#17202a;padding:10px 12px;text-align:left;font-size:15px;font-weight:500;position:relative}
+      .task-date-trigger::after{content:'▦';position:absolute;right:13px;top:50%;transform:translateY(-50%);color:#667085;font-size:19px}
+      .task-date-trigger.empty{color:#98a2b3}
+      .task-calendar-backdrop{position:fixed;inset:0;z-index:3900;display:flex;align-items:flex-end;justify-content:center;padding:0;background:rgba(15,23,42,.35);visibility:hidden;opacity:0;pointer-events:none;transition:opacity .2s ease,visibility 0s linear .2s}
+      .task-calendar-backdrop.open{visibility:visible;opacity:1;pointer-events:auto;transition:opacity .2s ease}
+      .task-calendar-sheet{width:min(520px,100%);max-height:90dvh;overflow:auto;background:#fff;border-radius:var(--mp-radius) var(--mp-radius) 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -12px 36px rgba(16,24,40,.18);transform:translateY(24px);transition:transform .22s ease}
+      .task-calendar-backdrop.open .task-calendar-sheet{transform:translateY(0)}
+      .task-calendar-nav{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:8px;margin:8px 0 14px}
+      .task-calendar-nav button{width:44px;height:44px;border:0;border-radius:var(--mp-radius)!important;background:#eef3fa;color:#27456f;font-size:28px;line-height:1}
+      .task-calendar-nav strong{text-align:center;text-transform:capitalize;font-size:16px;color:#17202a}
+      .task-calendar-week,.task-calendar-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+      .task-calendar-week{margin-bottom:6px;color:#667085;font-size:11px;font-weight:800;text-align:center}
+      .task-calendar-week span{padding:5px 0}
+      .task-calendar-day,.task-calendar-empty{aspect-ratio:1;min-width:0}
+      .task-calendar-day{border:0;border-radius:var(--mp-radius)!important;background:#f7f9fc;color:#344054;font-weight:750}
+      .task-calendar-day.today{box-shadow:inset 0 0 0 1.5px #8ba8cd}
+      .task-calendar-day.selected{background:#355a93!important;color:#fff!important;box-shadow:none!important}
+      .task-calendar-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+
+      #task-modal{background:#fff!important;overflow:hidden!important}
+      #task-modal .modal-sheet{background:#fff!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior-y:contain!important;overscroll-behavior-x:none!important;touch-action:pan-y!important;min-width:100vw!important;max-width:100vw!important;contain:paint!important;-webkit-overflow-scrolling:touch}
+      #task-modal .modal-sheet::after{content:'';display:block;height:max(1px,env(safe-area-inset-bottom));background:#fff}
+    `;
+    document.head.appendChild(style);
+  }
+  ensureAdvancedJournalFiltersUi();
+  ensureTaskCalendarUi();
+  updateNavigationForPermissions();
+}
+
 function bindEvents() {
   ensureTaskCreationUi();
   ensureTrtWorkspaceUi();
   ensureVisitWorkflowUi();
   ensureUnifiedSelectUi();
   ensureV60FinalUi();
+  ensureV61Ui();
 
   document.querySelectorAll('.nav-button').forEach(button => {
     button.addEventListener('click', () => switchScreen(button.dataset.screen));
