@@ -4011,6 +4011,12 @@ function ensureTaskCreationUi() {
   const currentTitleField = $('task-title');
   if (!modal || !currentTitleField) return;
 
+  const closeButton = $('task-create-close');
+  if (closeButton && !closeButton.dataset.bound) {
+    closeButton.dataset.bound = '1';
+    closeButton.addEventListener('click', closeModals);
+  }
+
   if (currentTitleField.tagName !== 'SELECT') {
     const select = document.createElement('select');
     select.id = 'task-title';
@@ -4112,6 +4118,13 @@ function openTaskModal() {
   }
 
   setTaskSaveBusy(false);
+  const taskTrt = selectedTrt();
+  const taskTrtRawTitle = taskTrt?.client || taskTrt?.holding || 'ТРТ';
+  const taskTrtTitle = stripTrtFormatFromTitle(taskTrtRawTitle, taskTrt?.format) || taskTrtRawTitle;
+  const taskSubtitle = $('task-create-subtitle');
+  if (taskSubtitle) {
+    taskSubtitle.textContent = [taskTrtTitle, taskTrt?.address || ''].filter(Boolean).join(' · ');
+  }
   taskCreationFiles = [];
   $('task-title').value = '';
   $('task-create-photo-input').value = '';

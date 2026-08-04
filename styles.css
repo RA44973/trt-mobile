@@ -2299,3 +2299,57 @@ body,
 
 
 /* v5.6 — подтверждена актуальная карточка задачи: геометрия КВ, Исполнитель, Наблюдатель, микрофон */
+
+
+/* v5.7 — полное восстановление карточки задачи */
+#task-modal .task-create-header {
+  position: relative !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  width: 100% !important;
+  margin: 0 0 14px !important;
+  padding: 18px 52px 16px 16px !important;
+  border-radius: 22px !important;
+  background: #fff !important;
+  box-shadow: 0 1px 3px rgba(16,24,40,.07) !important;
+  box-sizing: border-box !important;
+}
+#task-modal .task-create-header-text { min-width: 0 !important; width: 100% !important; }
+#task-modal .task-create-header .modal-title {
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+}
+#task-modal .task-create-subtitle {
+  margin-top: 7px !important;
+  color: #667085 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.35 !important;
+  overflow-wrap: anywhere !important;
+}
+#task-modal .task-create-close {
+  position: absolute !important;
+  top: 12px !important;
+  right: 12px !important;
+  width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
+  border: 1px solid #d5ddea !important;
+  border-radius: 50% !important;
+  background: #fff !important;
+  color: #667085 !important;
+  font: 400 25px/31px inherit !important;
+  text-align: center !important;
+  box-shadow: none !important;
+}
+#task-modal .task-create-close:active { background: #f2f4f7 !important; }
+#task-modal #task-create-media-group { padding: 14px 16px !important; }
+#task-modal #task-create-files-note { margin-top: 9px !important; }
+#task-modal #task-description { padding-right: 14px !important; }
+#task-modal #task-observer option:first-child { color: #667085; }
