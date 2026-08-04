@@ -3096,7 +3096,7 @@ function ensureTrtWorkspaceUi() {
   enforceTrtCardLayoutV35();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v4.3';
+  if (version) version.textContent = 'v4.4';
 }
 
 
@@ -3115,6 +3115,12 @@ function enforceTrtCardLayoutV35() {
   [summary, rating, sales, salesExpanded, actionLabel, actions, archiveLabel, archiveTabs]
     .filter(Boolean)
     .forEach(node => body.appendChild(node));
+
+  // Контент выбранного раздела архива всегда располагается ниже всех кнопок Архива.
+  ['tab-info', 'tab-sales', 'tab-visits', 'tab-tasks', 'tab-media']
+    .map(id => $(id))
+    .filter(Boolean)
+    .forEach(panel => body.appendChild(panel));
 
   body.classList.add('trt-layout-v35');
 }
