@@ -2250,3 +2250,52 @@ body,
 
 /* v5.4 — кнопка «Добавить» по ширине фильтра «Все точки» */
 #screen-points .add-point-button{width:132px;margin-left:auto;display:block;}
+
+
+/* v5.5 — шапка списка ТРТ и единая геометрия элементов */
+#screen-points .screen-inner {
+  padding-top: 8px !important;
+}
+
+#screen-points .points-heading-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin: 0 0 14px !important;
+}
+
+#screen-points .points-heading-row .section-title {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+}
+
+#screen-points .add-point-button {
+  width: 132px !important;
+  min-height: 48px !important;
+  margin: 0 !important;
+  flex: 0 0 132px !important;
+  border-radius: 22px !important;
+  border-color: #75b486 !important;
+  background: #9fd8ae !important;
+  color: #163f22 !important;
+  box-shadow: 0 2px 8px rgba(40,91,54,.12) !important;
+}
+
+#screen-points .list-toolbar {
+  align-items: stretch !important;
+}
+
+#screen-points .list-toolbar input,
+#screen-points .list-toolbar select {
+  min-height: 48px !important;
+  border-radius: 22px !important;
+}
+
+#screen-points .list-toolbar input {
+  background: #fff !important;
+}
+
+
+/* v5.6 — подтверждена актуальная карточка задачи: геометрия КВ, Исполнитель, Наблюдатель, микрофон */

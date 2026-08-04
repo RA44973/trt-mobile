@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="./styles.css?v=5.2-media-limits">
+  <link rel="stylesheet" href="./styles.css?v=5.6-task-card-restored">
 </head>
 <body>
 <section id="auth-screen" class="auth-screen">
@@ -41,7 +41,7 @@
 <div class="app-shell hidden">
   <header class="topbar">
     <div>
-      <div class="topbar-title">ТРТ <span style="font-size:11px;color:#98a2b3;font-weight:700;">v5.4</span></div>
+      <div class="topbar-title">ТРТ <span style="font-size:11px;color:#98a2b3;font-weight:700;">v5.6</span></div>
       <div id="topbar-subtitle" class="topbar-subtitle">Мобильный помощник</div>
     </div>
     <button id="quick-nearest-button" class="icon-button" type="button" aria-label="Найти ближайшую точку" title="Ближайшая ТРТ">
@@ -66,8 +66,10 @@
 
     <section id="screen-points" class="screen">
       <div class="screen-inner">
-        <h2 class="section-title">Торговые точки <span id="points-count" class="counter-pill">0</span></h2>
-        <button id="add-point-button" class="add-point-button" type="button">Добавить</button>
+        <div class="points-heading-row">
+          <h2 class="section-title">Торговые точки <span id="points-count" class="counter-pill">0</span></h2>
+          <button id="add-point-button" class="add-point-button" type="button">Добавить</button>
+        </div>
         <div class="list-toolbar">
           <input id="points-search" type="search" placeholder="Название, адрес, менеджер">
           <select id="points-filter">
@@ -376,6 +378,6 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="./app.js?v=5.4-add-point-button"></script>
+<script src="./app.js?v=5.6-task-card-restored"></script>
 </body>
 </html>
