@@ -2024,3 +2024,24 @@ body,
   align-items: center !important;
   justify-content: center !important;
 }
+
+/* v5.0 — оценки категорий как кнопки */
+#visit-modal .fourp-rating-pill,
+#visit-modal .fourp-rating-button {
+  min-width: 58px !important;
+  min-height: 42px !important;
+  padding: 7px 12px !important;
+  border: 1px solid #355a93 !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  color: #355a93 !important;
+  font-size: 23px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  justify-content: center !important;
+}
+
+#visit-modal .fourp-rating-pill.auto {
+  opacity: 1 !important;
+}
