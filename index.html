@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="./styles.css?v=5.0-rating-buttons">
+  <link rel="stylesheet" href="./styles.css?v=5.1-task-card">
 </head>
 <body>
 <section id="auth-screen" class="auth-screen">
@@ -320,13 +320,19 @@
     </div>
     <div class="form-grid">
       <div class="field-group">
-        <label class="field-label" for="task-assignee">Ответственный</label>
-        <input id="task-assignee" class="text-input" type="text" placeholder="Сотрудник">
+        <label class="field-label" for="task-assignee">Исполнитель</label>
+        <select id="task-assignee" class="select-input"></select>
       </div>
       <div class="field-group">
         <label class="field-label" for="task-due">Срок</label>
         <input id="task-due" class="date-input" type="date">
       </div>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="task-observer">Наблюдатель</label>
+      <select id="task-observer" class="select-input">
+        <option value="">Без наблюдателя</option>
+      </select>
     </div>
     <div class="field-group">
       <label class="field-label" for="task-priority">Приоритет</label>
@@ -350,6 +356,6 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="./app.js?v=5.0-rating-buttons"></script>
+<script src="./app.js?v=5.1-task-card"></script>
 </body>
 </html>

@@ -1169,6 +1169,7 @@ let visitOtherResult = '';
 let visitResultDraftSelection = new Set();
 let visitResultDraftOther = '';
 let visitVoiceRecognition = null;
+let taskVoiceRecognition = null;
 let visitReadOnlyMode = false;
 
 const $ = (id) => document.getElementById(id);
@@ -1969,6 +1970,9 @@ function taskSyncPayload(task) {
     trtId:task.trtId == null ? '' : String(task.trtId),
     direction:String(task.direction || trt?.direction || ''),
     assigneeId:String(task.assigneeId || currentUser?.employee_id || ''),
+    assignee:String(task.assignee || ''),
+    observerId:String(task.observerId || ''),
+    observer:String(task.observer || ''),
     title:String(task.title || ''),
     description:String(task.description || ''),
     completionComment:String(task.completionComment || ''),
@@ -2752,6 +2756,7 @@ function openTaskDetails(taskId, mode='view') {
     <div class="task-detail-box"><span>ТРТ</span><b>${escapeHtml(trt?.client || '—')}</b></div>
     <div class="task-detail-box"><span>Исполнитель</span><b>${escapeHtml(task.assignee || currentUser?.full_name || '—')}</b></div>
     <div class="task-detail-box"><span>Постановщик</span><b>${escapeHtml(task.createdBy || currentUser?.full_name || '—')}</b></div>
+    <div class="task-detail-box"><span>Наблюдатель</span><b>${escapeHtml(task.observer || '—')}</b></div>
     <div class="task-detail-box"><span>Срок</span><b>${escapeHtml(formatDate(task.dueDate))}</b></div>
     <div class="task-detail-box"><span>Приоритет</span><b>${escapeHtml(task.priority || 'Средний')}</b></div>
     <div class="task-detail-box"><span>Статус</span><b>${task.status === 'done' ? 'Выполнена' : 'Открыта'}</b></div>
@@ -3761,6 +3766,91 @@ async function saveVisit() {
   finishVisitSave(visit, trt, files, locationPromise);
 }
 
+
+function taskEmployeeOptions() {
+  const names = new Set();
+  const currentName = String(currentUser?.full_name || '').trim();
+  if (currentName) names.add(currentName);
+  trts.forEach(item => {
+    const manager = String(item?.manager || '').trim();
+    if (manager) names.add(manager);
+  });
+  return [...names].sort((a,b) => a.localeCompare(b, 'ru'));
+}
+
+function fillTaskEmployeeSelects() {
+  const names = taskEmployeeOptions();
+  const assignee = $('task-assignee');
+  const observer = $('task-observer');
+  const currentName = String(currentUser?.full_name || '').trim();
+
+  if (assignee) {
+    assignee.innerHTML = names.length
+      ? names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('')
+      : '<option value="">Сотрудник не выбран</option>';
+    if (currentName && names.includes(currentName)) assignee.value = currentName;
+  }
+
+  if (observer) {
+    observer.innerHTML = [
+      '<option value="">Без наблюдателя</option>',
+      ...names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+    ].join('');
+    observer.value = '';
+  }
+}
+
+function setTaskVoiceButtonState(listening) {
+  const button = $('task-voice-button');
+  if (!button) return;
+  button.classList.toggle('listening', Boolean(listening));
+  button.innerHTML = listening ? visitVoiceListeningHtml() : visitVoiceIdleHtml();
+  button.title = listening ? 'Идёт распознавание речи' : 'Голосовой ввод';
+  button.setAttribute('aria-label', button.title);
+}
+
+function startTaskVoiceInput() {
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const textarea = $('task-description');
+  if (!Recognition) {
+    showToast('Голосовой ввод не поддерживается на этом устройстве');
+    return;
+  }
+  if (taskVoiceRecognition) {
+    try { taskVoiceRecognition.stop(); } catch (_) {}
+    return;
+  }
+
+  const recognition = new Recognition();
+  taskVoiceRecognition = recognition;
+  recognition.lang = 'ru-RU';
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  let finalText = '';
+
+  recognition.onstart = () => setTaskVoiceButtonState(true);
+  recognition.onresult = event => {
+    for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      if (event.results[index].isFinal) {
+        finalText += `${String(event.results[index][0]?.transcript || '').trim()} `;
+      }
+    }
+  };
+  recognition.onerror = event => {
+    if (event.error !== 'aborted') showToast('Не удалось распознать речь');
+  };
+  recognition.onend = () => {
+    if (textarea && finalText.trim()) {
+      const prefix = textarea.value.trim();
+      textarea.value = `${prefix}${prefix ? ' ' : ''}${finalText.trim()}`;
+      textarea.dispatchEvent(new Event('input', {bubbles:true}));
+    }
+    taskVoiceRecognition = null;
+    setTaskVoiceButtonState(false);
+  };
+  recognition.start();
+}
+
 function ensureTaskCreationUi() {
   const modal = $('task-modal');
   const currentTitleField = $('task-title');
@@ -3779,6 +3869,25 @@ function ensureTaskCreationUi() {
     const group = select.closest('.field-group');
     const label = group?.querySelector('.field-label');
     if (label) label.textContent = 'Задача';
+  }
+
+  const taskDescription = $('task-description');
+  const taskDescriptionGroup = taskDescription?.closest('.field-group');
+  const taskDescriptionLabel = taskDescriptionGroup?.querySelector('.field-label');
+  if (taskDescriptionLabel && !$('task-voice-button')) {
+    const row = document.createElement('div');
+    row.className = 'task-label-row';
+    taskDescriptionLabel.replaceWith(row);
+    row.appendChild(taskDescriptionLabel);
+    const voice = document.createElement('button');
+    voice.id = 'task-voice-button';
+    voice.type = 'button';
+    voice.className = 'task-voice-button';
+    voice.innerHTML = visitVoiceIdleHtml();
+    voice.title = 'Голосовой ввод';
+    voice.setAttribute('aria-label', 'Голосовой ввод');
+    row.appendChild(voice);
+    voice.addEventListener('click', startTaskVoiceInput);
   }
 
   if (!$('task-create-media-group')) {
@@ -3807,6 +3916,19 @@ function ensureTaskCreationUi() {
       taskCreationFiles.push(...Array.from(event.target.files || []));
       updateTaskCreationFilesNote();
     });
+  }
+
+  const taskPhotoButton = $('task-create-photo-button');
+  const taskVideoButton = $('task-create-video-button');
+  const taskMediaRow = taskPhotoButton?.parentElement;
+  if (taskMediaRow) taskMediaRow.classList.add('task-media-button-row');
+  if (taskPhotoButton) {
+    taskPhotoButton.classList.add('task-media-button');
+    taskPhotoButton.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9 3 7.2 5H4a2 2 0 0 0-2 2v12h20V7a2 2 0 0 0-2-2h-3.2L15 3H9Zm3 14a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"/></svg><span>Фото</span>';
+  }
+  if (taskVideoButton) {
+    taskVideoButton.classList.add('task-media-button');
+    taskVideoButton.innerHTML = '<svg viewBox="0 0 24 24"><path d="M3 5h13v14H3V5Zm15 4 4-3v12l-4-3V9Z"/></svg><span>Видео</span>';
   }
 }
 
@@ -3840,8 +3962,7 @@ function openTaskModal() {
   $('task-create-photo-input').value = '';
   $('task-create-video-input').value = '';
   updateTaskCreationFilesNote();
-  $('task-assignee').value = currentUser?.full_name || '';
-  $('task-assignee').disabled = true;
+  fillTaskEmployeeSelects();
   $('task-due').value = '';
   $('task-priority').value = 'Средний';
   $('task-description').value = '';
@@ -3867,14 +3988,25 @@ async function saveTask() {
   setTaskSaveBusy(true);
 
   const trt = selectedTrt();
+  const assigneeName = String($('task-assignee')?.value || '').trim();
+  if (!assigneeName) {
+    showToast('Выберите исполнителя');
+    saveTaskInProgress = false;
+    setTaskSaveBusy(false);
+    return;
+  }
+  const observerName = String($('task-observer')?.value || '').trim();
   const now = new Date().toISOString();
   const task = {
     id:uuid(),
     trtId:selectedTrtId,
     direction:trt?.direction || '',
     title,
-    assignee:currentUser?.full_name || '',
-    assigneeId:currentUser?.employee_id || '',
+    assignee:assigneeName,
+    assigneeId:assigneeName === String(currentUser?.full_name || '').trim() ? (currentUser?.employee_id || '') : '',
+    observer:observerName,
+    observerId:observerName === String(currentUser?.full_name || '').trim() ? (currentUser?.employee_id || '') : '',
+    createdBy:currentUser?.full_name || '',
     createdById:currentUser?.employee_id || '',
     dueDate,
     priority:$('task-priority').value,
