@@ -586,14 +586,17 @@ function ensureFourPTrtCardUi() {
     <button id="trt-fourp-toggle" class="fourp-trt-toggle" type="button" aria-expanded="false">
       <span class="fourp-trt-toggle-main">
         <span class="fourp-trt-toggle-title">Рейтинг ТРТ</span>
-        <span class="fourp-trt-toggle-score">
-          <span id="trt-fourp-stars">${fourPStarsHtml(0)}</span>
-          <b id="trt-fourp-total">0,0</b>
+        <span class="fourp-trt-score-block">
+          <span class="fourp-trt-toggle-score">
+            <span id="trt-fourp-stars">${fourPStarsHtml(0)}</span>
+            <b id="trt-fourp-total">0,0</b>
+          </span>
+          <span id="trt-status-placeholder" class="trt-status-placeholder">АКБ</span>
         </span>
       </span>
       <span id="trt-fourp-chevron" class="fourp-trt-chevron" aria-hidden="true">
-        <svg viewBox="0 0 48 24" focusable="false" aria-hidden="true">
-          <path d="M4 7 L24 15 L44 7" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <svg viewBox="0 0 72 24" focusable="false" aria-hidden="true">
+          <path d="M4 7 L36 16 L68 7" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </span>
     </button>
@@ -601,10 +604,10 @@ function ensureFourPTrtCardUi() {
       <div id="trt-fourp-details" class="fourp-trt-list"></div>
       <div id="trt-fourp-date" class="file-note"></div>
     </div>`;
-  const pointHeader = pointCardHeaderElement();
-  if (pointHeader?.parentElement) {
-    pointHeader.insertAdjacentElement('afterend', card);
-    card.classList.add('fourp-under-main-header');
+
+  const summaryCard = $('detail-direction')?.closest('.card');
+  if (summaryCard?.parentElement) {
+    summaryCard.insertAdjacentElement('afterend', card);
   } else {
     tab.prepend(card);
   }
@@ -655,7 +658,8 @@ function renderFourPTrtCard() {
     <div class="fourp-trt-line"><span>Качество выставки ВОГ</span><b>${fourPFormatScore(displayScore)}</b></div>`;
   $('trt-fourp-date').textContent = hasAssessment
     ? `Последняя оценка: ${formatDateTime(visit.createdAt)}`
-    : 'Рейтинг ещё не заполнен';
+    : '';
+  $('trt-fourp-date').hidden = !hasAssessment;
 
   const wrap = $('trt-fourp-details-wrap');
   const toggle = $('trt-fourp-toggle');
@@ -2904,17 +2908,49 @@ function configureTrtInfoUi() {
     }
   });
 
-  replaceTrtInfoLabel(tab, 'Формат', 'Статус ТРТ');
-
-  ['detail-direction','detail-manager','detail-format','detail-size'].forEach(id => {
+  ['detail-direction','detail-manager','detail-size'].forEach(id => {
     const value = $(id);
     if (!value) return;
     value.classList.add('trt-primary-value');
     value.parentElement?.classList.add('trt-primary-field');
   });
 
+  const formatValue = $('detail-format');
+  const formatBox = formatValue?.closest('.info-box');
+  if (formatBox) formatBox.remove();
+
   const summaryCard = $('detail-direction')?.closest('.card');
-  if (summaryCard) summaryCard.classList.add('trt-summary-card');
+  if (summaryCard) {
+    summaryCard.classList.add('trt-summary-card');
+    const grid = summaryCard.querySelector('.detail-grid');
+    if (grid) grid.classList.add('trt-info-grid');
+  }
+
+  const salesValue = $('detail-size');
+  const salesBox = salesValue?.closest('.info-box');
+  if (salesBox) {
+    salesBox.classList.add('trt-sales-button');
+    salesBox.setAttribute('role', 'button');
+    salesBox.setAttribute('tabindex', '0');
+    salesBox.setAttribute('aria-label', 'Открыть график продаж');
+    if (!salesBox.querySelector('.trt-sales-chart-icon')) {
+      const icon = document.createElement('span');
+      icon.className = 'trt-sales-chart-icon';
+      icon.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16v2H2V3h2v16Zm3-3 4-5 3 3 5-7 1.6 1.2-6.4 8.8-3.1-3.1-2.6 3.2L7 16Z"/></svg>';
+      salesBox.appendChild(icon);
+    }
+    if (salesBox.dataset.boundSales !== '1') {
+      salesBox.dataset.boundSales = '1';
+      const openSales = () => setDetailTab('sales');
+      salesBox.addEventListener('click', openSales);
+      salesBox.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openSales();
+        }
+      });
+    }
+  }
 
   const customIds = [
     'edit-contact','edit-phone','edit-actual-size','edit-stands',
@@ -2947,157 +2983,6 @@ function ensureTrtWorkspaceUi() {
 
   document.body.dataset.trtWorkspaceUi = '1';
 
-  const style = document.createElement('style');
-  style.id = 'trt-workspace-style';
-  style.textContent = `
-    #detail-overlay{background:#f1f2f4!important}
-    #tab-info{padding-bottom:22px;background:#f1f2f4!important}
-    #tab-info>.card,.trt-summary-card,.fourp-trt-card{
-      border:0!important;
-      border-radius:22px!important;
-      background:#fff!important;
-      box-shadow:none!important;
-    }
-    .trt-summary-card{margin:0 14px 14px!important}
-    .trt-work-actions{
-      display:grid!important;
-      grid-template-columns:repeat(2,minmax(0,1fr))!important;
-      gap:10px!important;
-      margin:16px 0 0!important;
-      width:100%!important;
-    }
-    .trt-work-actions button{
-      display:flex!important;
-      align-items:center!important;
-      justify-content:center!important;
-      width:100%!important;
-      min-width:0!important;
-      min-height:54px!important;
-      padding:12px 4px!important;
-      font-size:16px!important;
-      font-weight:850!important;
-      line-height:1.1!important;
-      white-space:nowrap;
-      border:1px solid #355a93!important;
-      border-radius:14px!important;
-      background:#355a93!important;
-      color:#fff!important;
-      box-shadow:0 2px 5px rgba(53,90,147,.18)!important;
-    }
-    .trt-work-actions button:active{
-      background:#27456f!important;
-      transform:translateY(1px);
-    }
-    .trt-archive-label{
-      margin:20px 14px 9px;
-      color:#667085;
-      font-size:14px;
-      font-weight:800;
-      letter-spacing:.03em;
-    }
-    .trt-archive-tabs{
-      display:grid!important;
-      grid-template-columns:repeat(2,minmax(0,1fr))!important;
-      gap:9px!important;
-      overflow:visible!important;
-      padding:0!important;
-      margin:0 14px 16px!important;
-      border:0!important;
-      background:transparent!important;
-    }
-    .trt-archive-tabs .tab-button{
-      display:flex!important;
-      align-items:center!important;
-      justify-content:center!important;
-      width:100%!important;
-      min-width:0!important;
-      min-height:50px!important;
-      padding:11px 3px!important;
-      border:1px solid #d0d5dd!important;
-      border-radius:12px!important;
-      background:#fff!important;
-      color:#344054!important;
-      font-size:15px!important;
-      font-weight:800!important;
-      line-height:1.1!important;
-      white-space:nowrap;
-      box-shadow:0 1px 2px rgba(16,24,40,.05);
-    }
-    .trt-archive-tabs .tab-button.active{
-      border-color:#355a93!important;
-      background:#355a93!important;
-      color:#fff!important;
-      box-shadow:0 2px 5px rgba(53,90,147,.18);
-    }
-    .trt-hidden-sales-tab{display:none!important}
-    .trt-primary-field{padding-top:3px;padding-bottom:3px}
-    .trt-primary-value{font-size:18px!important;font-weight:850!important;line-height:1.3!important;min-height:24px}
-    .fourp-trt-card{padding:0!important;overflow:hidden;margin-bottom:16px!important}
-    .fourp-trt-toggle{
-      width:100%;
-      min-height:92px;
-      border:0;
-      background:#fff;
-      color:#17202a;
-      padding:15px 16px 7px;
-      display:flex;
-      flex-direction:column;
-      align-items:stretch;
-      gap:5px;
-      text-align:left;
-    }
-    .fourp-trt-toggle-main{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%}
-    .fourp-trt-toggle-title{font-size:18px;font-weight:900}
-    .fourp-trt-toggle-score{display:flex;align-items:center;justify-content:flex-end;gap:9px;white-space:nowrap;margin-left:auto}
-    .fourp-trt-toggle-score b{
-      min-width:48px;
-      text-align:right;
-      font-size:23px;
-      font-weight:950;
-      color:#17202a;
-    }
-    .fourp-trt-toggle-score .fourp-star{font-size:19px}
-    .fourp-trt-chevron{
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      width:100%;
-      height:28px;
-      color:#b4b7be;
-      transition:transform .2s ease,color .2s ease;
-    }
-    .fourp-trt-chevron svg{width:52px;height:25px;display:block}
-    .fourp-trt-chevron.open{transform:rotate(180deg);color:#858992}
-    .fourp-under-main-header{margin:14px 14px 16px!important}
-    .trt-sales-field{
-      min-height:124px!important;
-      display:flex!important;
-      flex-direction:column!important;
-      box-sizing:border-box!important;
-    }
-    .trt-sales-value{
-      display:flex!important;
-      flex:1 1 auto!important;
-      min-height:82px!important;
-      align-items:center!important;
-      justify-content:center!important;
-      gap:7px!important;
-      width:100%!important;
-      text-align:center!important;
-    }
-    .trt-sales-number{font-size:30px!important;font-weight:950!important;line-height:1!important}
-    .trt-sales-unit{font-size:15px!important;font-weight:750!important;color:#667085}
-    .fourp-trt-details-wrap{padding:0 14px 13px;border-top:1px solid #eaecf0}
-    .fourp-trt-line{font-size:13px!important;padding:10px 0!important}
-    .task-actions{display:flex;flex-wrap:wrap;gap:7px}
-    .task-actions button{min-height:38px;font-weight:700}
-    @media (max-width:360px){
-      .trt-work-actions button,.trt-archive-tabs .tab-button{font-size:14px!important}
-      .fourp-trt-toggle-score .fourp-star{font-size:16px}
-    }
-  `;
-  document.head.appendChild(style);
-
   dataButton.remove();
   visitButton.textContent = 'Визит';
   taskButton.textContent = 'Задача';
@@ -3107,11 +2992,19 @@ function ensureTrtWorkspaceUi() {
   actions.classList.add('trt-work-actions');
   actions.append(visitButton, taskButton);
 
+  if (!$('trt-actions-label')) {
+    const actionLabel = document.createElement('div');
+    actionLabel.id = 'trt-actions-label';
+    actionLabel.className = 'trt-section-label';
+    actionLabel.textContent = 'Действие в ТРТ';
+    actions.insertAdjacentElement('beforebegin', actionLabel);
+  }
+
   let archiveLabel = $('trt-archive-label');
   if (!archiveLabel) {
     archiveLabel = document.createElement('div');
     archiveLabel.id = 'trt-archive-label';
-    archiveLabel.className = 'trt-archive-label';
+    archiveLabel.className = 'trt-section-label trt-archive-label';
     archiveLabel.textContent = 'Архив';
     tabs.insertAdjacentElement('beforebegin', archiveLabel);
   }
@@ -3123,29 +3016,41 @@ function ensureTrtWorkspaceUi() {
   const mediaTab = tabs.querySelector('[data-tab="media"]');
 
   if (infoTab) infoTab.remove();
-  if (salesTab) {
-    salesTab.classList.remove('trt-hidden-sales-tab');
-    salesTab.textContent = 'Продажи';
-    salesTab.setAttribute('aria-label', 'Продажи ТРТ');
-  }
+  if (salesTab) salesTab.remove();
   if (visitsTab) visitsTab.textContent = 'Визиты';
   if (tasksTab) tasksTab.textContent = 'Задачи';
-  if (mediaTab) {
-    mediaTab.textContent = 'Фото';
-    mediaTab.setAttribute('aria-label', 'Фото и видео ТРТ');
+
+  let photoTab = mediaTab;
+  if (photoTab) {
+    photoTab.dataset.tab = 'photos';
+    photoTab.textContent = 'Фото';
+    photoTab.setAttribute('aria-label', 'Фотографии ТРТ');
+  }
+
+  let videoTab = tabs.querySelector('[data-tab="videos"]');
+  if (!videoTab && photoTab) {
+    videoTab = photoTab.cloneNode(true);
+    videoTab.dataset.tab = 'videos';
+    videoTab.textContent = 'Видео';
+    videoTab.setAttribute('aria-label', 'Видео ТРТ');
   }
 
   tabs.classList.add('trt-archive-tabs');
-  [visitsTab, tasksTab, mediaTab, salesTab].forEach(tab => {
+  [visitsTab, tasksTab, photoTab, videoTab].forEach(tab => {
     if (tab) tabs.appendChild(tab);
   });
+
+  if (videoTab && !videoTab.dataset.boundTab) {
+    videoTab.dataset.boundTab = '1';
+    videoTab.addEventListener('click', () => setDetailTab('videos'));
+  }
 
   configureTrtInfoUi();
   ensureFourPVisitUi();
   ensureFourPTrtCardUi();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v2.9';
+  if (version) version.textContent = 'v3.0';
 }
 
 function switchScreen(name) {
@@ -3186,7 +3091,8 @@ function renderSelectedTrt() {
   $('detail-address').textContent = trt.address || '';
   $('detail-direction').textContent = trt.direction || '—';
   $('detail-manager').textContent = shortPersonName(trt.manager) || '—';
-  $('detail-format').textContent = trt.status || trt.trtStatus || '\u00a0';
+  const statusPlaceholder = $('trt-status-placeholder');
+  if (statusPlaceholder) statusPlaceholder.textContent = 'АКБ';
   const salesValue = $('detail-size');
   if (salesValue) {
     salesValue.classList.add('trt-sales-value');
@@ -3223,12 +3129,17 @@ async function saveSelectedTrt() {
 }
 
 function setDetailTab(name) {
-  document.querySelectorAll('.tab-button').forEach(button => button.classList.toggle('active', button.dataset.tab === name));
-  document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.toggle('active', panel.id === 'tab-' + name));
-  if (name === 'sales') renderSales();
-  if (name === 'visits') renderVisits();
-  if (name === 'media') renderMedia();
-  if (name === 'tasks') renderPointTasks();
+  const mediaName = name === 'media' ? 'photos' : name;
+  document.querySelectorAll('.tab-button').forEach(button => button.classList.toggle('active', button.dataset.tab === mediaName));
+  document.querySelectorAll('.tab-panel').forEach(panel => {
+    const expected = (mediaName === 'photos' || mediaName === 'videos') ? 'tab-media' : `tab-${mediaName}`;
+    panel.classList.toggle('active', panel.id === expected);
+  });
+  if (mediaName === 'sales') renderSales();
+  if (mediaName === 'visits') renderVisits();
+  if (mediaName === 'photos') renderMedia('photo');
+  if (mediaName === 'videos') renderMedia('video');
+  if (mediaName === 'tasks') renderPointTasks();
 }
 
 
@@ -3381,12 +3292,17 @@ function renderVisits() {
   });
 }
 
-function renderMedia() {
-  const rows = mediaItems.filter(item => item.trtId === selectedTrtId);
+function renderMedia(kind='all') {
+  let rows = mediaItems.filter(item => item.trtId === selectedTrtId);
+  if (kind === 'photo') rows = rows.filter(item => !String(item.type || '').startsWith('video/'));
+  if (kind === 'video') rows = rows.filter(item => String(item.type || '').startsWith('video/'));
+
   const grid = $('media-grid');
   grid.innerHTML = '';
   if (!rows.length) {
-    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;margin:0;"><h3>Материалов нет</h3><p>Добавьте фото или видео этой точки.</p></div>';
+    const title = kind === 'video' ? 'Видео пока нет' : kind === 'photo' ? 'Фотографий пока нет' : 'Материалов нет';
+    const hint = kind === 'video' ? 'Добавьте видео этой точки.' : kind === 'photo' ? 'Добавьте фотографии этой точки.' : 'Добавьте фото или видео этой точки.';
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;margin:0;"><h3>${title}</h3><p>${hint}</p></div>`;
     return;
   }
 
@@ -3901,7 +3817,7 @@ async function addStandaloneMedia(files) {
   try {
     await saveMediaFiles(Array.from(files), selectedTrtId, null, null, 'point');
     await refreshData();
-    setDetailTab('media');
+    setDetailTab(Array.from(files).some(file => String(file.type || '').startsWith('video/')) ? 'videos' : 'photos');
     showToast('Материалы сохранены');
     syncMediaWithServer({silent:false});
   } catch (error) {
