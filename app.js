@@ -433,8 +433,8 @@ function ensureFourPVisitUi() {
     <div class="fourp-section-head">
       <h3 class="fourp-section-title">Рейтинг ТРТ</h3>
       <div class="fourp-total-display">
-        <strong id="fourp-total-score" class="fourp-total-value">0,0</strong>
         <span id="fourp-total-stars">${fourPStarsHtml(0)}</span>
+        <strong id="fourp-total-score" class="fourp-total-value">0,0</strong>
       </div>
     </div>
     <input id="fourp-place-location" type="hidden">
@@ -3096,7 +3096,7 @@ function ensureTrtWorkspaceUi() {
   enforceTrtCardLayoutV35();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v4.7';
+  if (version) version.textContent = 'v4.8';
 }
 
 

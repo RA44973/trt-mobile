@@ -1754,3 +1754,216 @@ body,
 #detail-overlay #tab-media .empty-state p {
   display: none !important;
 }
+
+/* v4.8 — карточка визита в единой геометрии с карточкой ТРТ */
+#visit-modal {
+  background: #f1f3f7 !important;
+  align-items: stretch !important;
+}
+
+#visit-modal .modal-sheet {
+  width: 100% !important;
+  max-width: 100% !important;
+  max-height: 100vh !important;
+  min-height: 100vh !important;
+  margin: 0 !important;
+  padding: 10px 14px calc(28px + env(safe-area-inset-bottom)) !important;
+  border-radius: 0 !important;
+  background: #f1f3f7 !important;
+  box-shadow: none !important;
+}
+
+#visit-modal .modal-handle {
+  display: none !important;
+}
+
+#visit-modal #visit-detail-header-host {
+  width: 100% !important;
+  margin: 0 0 14px !important;
+}
+
+#visit-modal #visit-detail-header-host .detail-header,
+#visit-modal #visit-detail-header-host > * {
+  width: 100% !important;
+  margin: 0 !important;
+  left: auto !important;
+  right: auto !important;
+}
+
+#visit-modal .field-group,
+#visit-modal #fourp-visit-section {
+  width: 100% !important;
+  margin: 0 0 14px !important;
+  padding: 14px 16px !important;
+  border: 0 !important;
+  border-radius: 22px !important;
+  background: #fff !important;
+  box-shadow: 0 1px 3px rgba(16,24,40,.07) !important;
+  box-sizing: border-box !important;
+}
+
+#visit-modal .field-label,
+#visit-modal .fourp-section-title {
+  margin: 0 0 8px !important;
+  color: #667085 !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  line-height: 1.25 !important;
+  letter-spacing: .04em !important;
+  text-transform: uppercase !important;
+}
+
+#visit-modal .fourp-section-head {
+  align-items: flex-start !important;
+  margin: 0 0 8px !important;
+}
+
+#visit-modal .fourp-section-title {
+  color: #1a2840 !important;
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+#visit-modal .fourp-total-display {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+}
+
+#visit-modal .fourp-total-display #fourp-total-stars {
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+#visit-modal .fourp-total-display .fourp-star {
+  font-size: 20px !important;
+}
+
+#visit-modal .fourp-total-value {
+  color: #355a93 !important;
+  font-size: 24px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+}
+
+#visit-modal .fourp-rating-list {
+  margin-top: 0 !important;
+}
+
+#visit-modal .fourp-rating-row {
+  padding: 12px 0 !important;
+  border-bottom: 1px solid #eaecf0 !important;
+}
+
+#visit-modal .fourp-rating-row:last-child {
+  padding-bottom: 0 !important;
+  border-bottom: 0 !important;
+}
+
+#visit-modal .fourp-rating-label {
+  color: #1a2840 !important;
+  font-size: 17px !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+}
+
+#visit-modal .fourp-rating-pill,
+#visit-modal .fourp-rating-button {
+  width: auto !important;
+  min-width: 52px !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #1a2840 !important;
+  font-size: 23px !important;
+  font-weight: 800 !important;
+  line-height: 1.1 !important;
+  justify-content: flex-end !important;
+}
+
+#visit-modal .fourp-rating-button {
+  color: #355a93 !important;
+}
+
+#visit-modal .fourp-help-button {
+  border-color: #91a8c8 !important;
+  color: #355a93 !important;
+}
+
+#visit-modal .fourp-compact-input,
+#visit-modal .text-input,
+#visit-modal .select-input,
+#visit-modal .text-area,
+#visit-modal .visit-result-trigger {
+  width: 100% !important;
+  border: 1px solid #dbe3ee !important;
+  border-radius: 16px !important;
+  background: #fff !important;
+  color: #1a2840 !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+#visit-modal .fourp-input-caption,
+#visit-modal .fourp-rating-note,
+#visit-modal .fourp-system-note,
+#visit-modal .file-note {
+  color: #667085 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+#visit-modal .visit-media-button-row {
+  gap: 12px !important;
+}
+
+#visit-modal .visit-media-button {
+  min-height: 92px !important;
+  border: 1px solid #355a93 !important;
+  border-radius: 22px !important;
+  background: #fff !important;
+  color: #355a93 !important;
+  font-size: 17px !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+
+#visit-modal .visit-media-button svg {
+  width: 30px !important;
+  height: 30px !important;
+}
+
+#visit-modal .modal-actions {
+  width: 100% !important;
+  margin: 0 !important;
+  gap: 12px !important;
+}
+
+#visit-modal .modal-actions button {
+  min-height: 58px !important;
+  border-radius: 22px !important;
+  font-size: 17px !important;
+  font-weight: 800 !important;
+}
+
+#visit-modal .modal-actions .secondary-button {
+  border-color: #355a93 !important;
+  background: #fff !important;
+  color: #355a93 !important;
+}
+
+@media (max-width: 360px) {
+  #visit-modal .modal-sheet {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+}
