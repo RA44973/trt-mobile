@@ -55,11 +55,10 @@ const TASK_TYPES = Object.freeze([
 ]);
 
 const VISIT_RESULT_OPTIONS = Object.freeze([
-  'Переговоры проведены',
-  'Договорённость достигнута',
-  'Нужен повторный визит',
-  'Отказ',
-  'Точка закрыта'
+  'Сертификация новой ТРТ',
+  'Переговоры',
+  'Ротация ассортимента',
+  'Чек лист ТРТ'
 ]);
 
 
@@ -959,7 +958,10 @@ function ensureVisitWorkflowUi() {
     .visit-result-option{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid #eaecf0;color:#17202a;font-weight:700}
     .visit-result-option input{width:20px;height:20px;margin:0;accent-color:#355a93}
     .visit-result-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
-    .visit-label-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .visit-goal-picker-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+    .visit-goal-picker-head .modal-title{margin:0!important}
+    .visit-picker-close{width:34px;height:34px;flex:0 0 34px;border:1px solid #d0d5dd;border-radius:50%;background:#fff;color:#667085;font-size:25px;line-height:30px;padding:0;display:flex;align-items:center;justify-content:center}
+    .visit-label-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
     .visit-voice-button{width:46px;height:38px;border:1px solid #b8d4a8;border-radius:10px;background:#fff;color:#355a93;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden}
     .visit-microphone-icon{width:21px;height:21px;fill:currentColor}
     .visit-voice-button.listening{background:#e7f3ee;box-shadow:0 0 0 4px rgba(23,107,77,.08)}
@@ -993,7 +995,7 @@ function ensureVisitWorkflowUi() {
     const group = originalResult.closest('.field-group');
     const label = group?.querySelector('.field-label');
     if (label) {
-      label.textContent = 'Результаты визита *';
+      label.textContent = 'Цель визита *';
       label.htmlFor = 'visit-result-trigger';
     }
     if (!$('visit-result-trigger')) {
@@ -1001,7 +1003,7 @@ function ensureVisitWorkflowUi() {
       trigger.id = 'visit-result-trigger';
       trigger.type = 'button';
       trigger.className = 'visit-result-trigger empty';
-      trigger.innerHTML = '<span>Выберите результат</span>';
+      trigger.innerHTML = '<span>Выберите цель визита</span>';
       originalResult.insertAdjacentElement('afterend', trigger);
       trigger.addEventListener('click', openVisitResultPicker);
     }
@@ -1014,15 +1016,15 @@ function ensureVisitWorkflowUi() {
     picker.innerHTML = `
       <div class="modal-sheet">
         <div class="modal-handle"></div>
-        <h2 class="modal-title">Результаты визита</h2>
+        <div class="visit-goal-picker-head"><h2 class="modal-title">Цель визита</h2><button id="visit-result-close" class="visit-picker-close" type="button" aria-label="Закрыть">×</button></div>
         <div>${VISIT_RESULT_OPTIONS.map(option => `
           <label class="visit-result-option">
             <input type="checkbox" value="${escapeHtml(option)}" data-visit-result-option>
             <span>${escapeHtml(option)}</span>
           </label>`).join('')}</div>
         <div class="field-group" style="margin-top:14px;">
-          <label class="field-label" for="visit-other-result-input">Другой результат</label>
-          <input id="visit-other-result-input" class="text-input" type="text" placeholder="Введите свой результат">
+          <label class="field-label" for="visit-other-result-input">Другое</label>
+          <input id="visit-other-result-input" class="text-input" type="text" placeholder="Введите свою цель визита">
         </div>
         <div class="visit-result-actions">
           <button id="visit-result-cancel" class="secondary-button" type="button">Отмена</button>
@@ -1038,6 +1040,7 @@ function ensureVisitWorkflowUi() {
       });
     });
     $('visit-result-cancel').addEventListener('click', closeVisitResultPicker);
+    $('visit-result-close')?.addEventListener('click', closeVisitResultPicker);
     $('visit-result-apply').addEventListener('click', applyVisitResultPicker);
     picker.addEventListener('click', event => {
       if (event.target === picker) closeVisitResultPicker();
@@ -3531,10 +3534,12 @@ function openVisitModal(visitId=null, options={}) {
   visitFiles = [];
 
   const visitTrt = trts.find(item => String(item.id) === String(selectedTrtId));
+  const visitTrtRawTitle = visitTrt?.client || visitTrt?.holding || 'ТРТ';
+  const visitTrtTitle = stripTrtFormatFromTitle(visitTrtRawTitle, visitTrt?.format) || visitTrtRawTitle;
   updateMatchingCardHeader(
     'visit',
     readOnly ? 'Просмотр визита' : (existing ? 'Редактирование визита' : 'Новый визит'),
-    [visitTrt?.client || visitTrt?.holding || 'ТРТ', visitTrt?.address || ''].filter(Boolean).join(' · '),
+    [visitTrtTitle, visitTrt?.address || ''].filter(Boolean).join(' · '),
     Boolean(visitTrt)
   );
 

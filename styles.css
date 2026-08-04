@@ -1967,3 +1967,60 @@ body,
     padding-right: 10px !important;
   }
 }
+
+
+/* v4.9 — карточка «Новый визит» */
+#visit-modal #fourp-visit-section {
+  padding-top: 19px !important;
+}
+
+#visit-modal .fourp-section-head {
+  margin-bottom: 13px !important;
+}
+
+#visit-modal .fourp-total-display {
+  gap: 14px !important;
+}
+
+#visit-modal .fourp-rating-label,
+#visit-modal .fourp-rating-pill,
+#visit-modal .fourp-rating-button {
+  font-weight: 400 !important;
+}
+
+#visit-modal .visit-label-row {
+  margin-bottom: 6px !important;
+}
+
+#visit-modal #visit-comment {
+  min-height: 110px !important;
+}
+
+#visit-result-picker .visit-goal-picker-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin-bottom: 8px !important;
+}
+
+#visit-result-picker .visit-goal-picker-head .modal-title {
+  margin: 0 !important;
+}
+
+#visit-result-picker .visit-picker-close {
+  width: 34px !important;
+  height: 34px !important;
+  flex: 0 0 34px !important;
+  border: 1px solid #d0d5dd !important;
+  border-radius: 50% !important;
+  background: #fff !important;
+  color: #667085 !important;
+  font-size: 25px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
