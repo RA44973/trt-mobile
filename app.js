@@ -2518,8 +2518,14 @@ function relatedTrtIdForCard(prefix) {
   if (prefix === 'task') {
     return tasks.find(item => String(item.id) === String(selectedTaskId))?.trtId || null;
   }
-  if (prefix === 'visit') return selectedTrtId || null;
+  if (prefix === 'visit' || prefix === 'task-create') return selectedTrtId || null;
   return null;
+}
+
+function matchingHeaderTitleId(prefix) {
+  if (prefix === 'task') return 'task-detail-title';
+  if (prefix === 'task-create') return 'task-create-title';
+  return 'visit-modal-title';
 }
 
 function openRelatedTrtOnMap(prefix, closeCard) {
@@ -2546,7 +2552,7 @@ function createFallbackMatchingHeader(prefix) {
   header.innerHTML = `
     <button id="${prefix}-header-back" class="shared-card-header-button" type="button" aria-label="Назад">←</button>
     <div class="shared-card-header-copy">
-      <div id="${prefix === 'task' ? 'task-detail-title' : 'visit-modal-title'}" class="shared-card-header-title"></div>
+      <div id="${matchingHeaderTitleId(prefix)}" class="shared-card-header-title"></div>
       <div id="${prefix}-header-subtitle" class="shared-card-header-subtitle"></div>
     </div>
     <button id="${prefix}-header-location" class="shared-card-header-button" type="button" aria-label="Показать на карте">⌖</button>`;
@@ -2570,7 +2576,7 @@ function mountMatchingCardHeader(prefix, host, closeCard) {
       const oldId = element.id;
       if (oldId === 'detail-close') element.id = `${prefix}-header-back`;
       else if (oldId === 'detail-title') {
-        element.id = prefix === 'task' ? 'task-detail-title' : 'visit-modal-title';
+        element.id = matchingHeaderTitleId(prefix);
       }
       else if (oldId === 'detail-address') element.id = `${prefix}-header-subtitle`;
       else if (oldId === 'detail-location') element.id = `${prefix}-header-location`;
@@ -2589,11 +2595,14 @@ function mountMatchingCardHeader(prefix, host, closeCard) {
 }
 
 function updateMatchingCardHeader(prefix, titleText, subtitleText, hasTrt=true) {
-  const title = prefix === 'task' ? $('task-detail-title') : $('visit-modal-title');
+  const title = $(matchingHeaderTitleId(prefix));
   const subtitle = $(`${prefix}-header-subtitle`);
   const locationButton = $(`${prefix}-header-location`);
 
-  if (title) title.textContent = titleText || (prefix === 'task' ? 'Задача' : 'Визит');
+  if (title) {
+    const fallbackTitle = prefix === 'task' ? 'Задача' : (prefix === 'task-create' ? 'Новая задача' : 'Визит');
+    title.textContent = titleText || fallbackTitle;
+  }
   if (subtitle) subtitle.textContent = subtitleText || '';
   if (locationButton) locationButton.hidden = !hasTrt;
 }
@@ -4011,10 +4020,9 @@ function ensureTaskCreationUi() {
   const currentTitleField = $('task-title');
   if (!modal || !currentTitleField) return;
 
-  const closeButton = $('task-create-close');
-  if (closeButton && !closeButton.dataset.bound) {
-    closeButton.dataset.bound = '1';
-    closeButton.addEventListener('click', closeModals);
+  const taskHeaderHost = $('task-create-header-host');
+  if (taskHeaderHost && !$('task-create-shared-card-header')) {
+    mountMatchingCardHeader('task-create', taskHeaderHost, closeModals);
   }
 
   if (currentTitleField.tagName !== 'SELECT') {
@@ -4121,10 +4129,12 @@ function openTaskModal() {
   const taskTrt = selectedTrt();
   const taskTrtRawTitle = taskTrt?.client || taskTrt?.holding || 'ТРТ';
   const taskTrtTitle = stripTrtFormatFromTitle(taskTrtRawTitle, taskTrt?.format) || taskTrtRawTitle;
-  const taskSubtitle = $('task-create-subtitle');
-  if (taskSubtitle) {
-    taskSubtitle.textContent = [taskTrtTitle, taskTrt?.address || ''].filter(Boolean).join(' · ');
-  }
+  updateMatchingCardHeader(
+    'task-create',
+    'Новая задача',
+    [taskTrtTitle, taskTrt?.address || ''].filter(Boolean).join(' · '),
+    Boolean(taskTrt)
+  );
   taskCreationFiles = [];
   $('task-title').value = '';
   $('task-create-photo-input').value = '';

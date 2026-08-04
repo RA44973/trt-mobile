@@ -2353,3 +2353,37 @@ body,
 #task-modal #task-create-files-note { margin-top: 9px !important; }
 #task-modal #task-description { padding-right: 14px !important; }
 #task-modal #task-observer option:first-child { color: #667085; }
+
+
+/* v5.8 — срок и приоритет в карточке задачи в одной строке */
+#task-modal .task-timing-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 12px !important;
+  align-items: stretch !important;
+}
+#task-modal .task-timing-row .field-group {
+  min-width: 0 !important;
+  margin: 0 !important;
+}
+#task-modal .task-timing-row .date-input,
+#task-modal .task-timing-row .select-input {
+  min-width: 0 !important;
+  font-size: 14px !important;
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+
+
+/* v5.9 — шапка КЗ использует тот же компонент, что и КВ */
+#task-modal #task-create-header-host {
+  width: 100% !important;
+  margin: 0 0 14px !important;
+}
+#task-modal #task-create-header-host .detail-header,
+#task-modal #task-create-header-host > * {
+  width: 100% !important;
+  margin: 0 !important;
+  left: auto !important;
+  right: auto !important;
+}
