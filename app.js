@@ -596,7 +596,7 @@ function ensureFourPTrtCardUi() {
       </span>
       <span id="trt-fourp-chevron" class="fourp-trt-chevron" aria-hidden="true">
         <svg viewBox="0 0 72 24" focusable="false" aria-hidden="true">
-          <path d="M4 7 L36 16 L68 7" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4 7 L36 16 L68 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </span>
     </button>
@@ -610,6 +610,17 @@ function ensureFourPTrtCardUi() {
     summaryCard.insertAdjacentElement('afterend', card);
   } else {
     tab.prepend(card);
+  }
+
+  // Продажи идут отдельным блоком сразу после рейтинга.
+  const salesValue = $('detail-size');
+  const salesBox = salesValue?.closest('.info-box');
+  const salesExpanded = salesBox?.nextElementSibling?.classList.contains('trt-sales-expanded')
+    ? salesBox.nextElementSibling
+    : null;
+  if (salesBox) {
+    card.insertAdjacentElement('afterend', salesBox);
+    if (salesExpanded) salesBox.insertAdjacentElement('afterend', salesExpanded);
   }
 
   $('trt-fourp-toggle').addEventListener('click', () => {
@@ -2929,6 +2940,8 @@ function configureTrtInfoUi() {
   const salesValue = $('detail-size');
   const salesBox = salesValue?.closest('.info-box');
   if (salesBox) {
+    const salesLabel = salesBox.querySelector('.info-label');
+    if (salesLabel) salesLabel.textContent = 'ПРОДАЖИ / МЕС.';
     salesBox.classList.add('trt-sales-button');
     salesBox.setAttribute('role', 'button');
     salesBox.setAttribute('tabindex', '0');
@@ -2943,7 +2956,7 @@ function configureTrtInfoUi() {
       const chevron = document.createElement('span');
       chevron.className = 'trt-sales-chevron';
       chevron.setAttribute('aria-hidden', 'true');
-      chevron.innerHTML = '<svg viewBox="0 0 48 24"><path d="M5 5 L24 16 L43 5" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      chevron.innerHTML = '<svg viewBox="0 0 72 24"><path d="M4 7 L36 16 L68 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
       salesBox.appendChild(chevron);
     }
     if (!salesBox.nextElementSibling?.classList.contains('trt-sales-expanded')) {
@@ -3075,7 +3088,7 @@ function ensureTrtWorkspaceUi() {
   ensureFourPTrtCardUi();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v3.2';
+  if (version) version.textContent = 'v3.3';
 }
 
 function switchScreen(name) {

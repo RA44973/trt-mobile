@@ -918,3 +918,131 @@ body,
 #detail-overlay .trt-archive-tabs {
   gap: 10px !important;
 }
+
+
+/* v3.3 — рейтинг перед продажами и точная типографика блока продаж */
+#detail-overlay #tab-info {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+}
+
+#detail-overlay .trt-summary-card {
+  order: 1 !important;
+}
+
+#detail-overlay .fourp-trt-card {
+  order: 2 !important;
+}
+
+#detail-overlay .trt-sales-button {
+  order: 3 !important;
+  width: 100% !important;
+  margin: 0 !important;
+  position: relative !important;
+  display: grid !important;
+  grid-template-columns: minmax(0,1fr) minmax(150px,auto) 46px !important;
+  align-items: center !important;
+  min-height: 98px !important;
+  padding: 16px 18px 25px !important;
+}
+
+#detail-overlay .trt-sales-expanded {
+  order: 4 !important;
+  width: 100% !important;
+  margin-top: -14px !important;
+}
+
+#detail-overlay .trt-section-label#trt-actions-label {
+  order: 5 !important;
+}
+
+#detail-overlay .trt-work-actions {
+  order: 6 !important;
+}
+
+#detail-overlay .trt-archive-label {
+  order: 7 !important;
+}
+
+#detail-overlay .trt-archive-tabs {
+  order: 8 !important;
+}
+
+#detail-overlay .trt-sales-button .info-label {
+  align-self: start !important;
+  justify-self: start !important;
+  margin: 0 !important;
+  color: #667085 !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  letter-spacing: .02em !important;
+  text-transform: uppercase !important;
+}
+
+#detail-overlay .trt-sales-button .trt-sales-value {
+  align-self: center !important;
+  justify-self: center !important;
+  display: flex !important;
+  align-items: baseline !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  min-height: 0 !important;
+  transform: translateX(-6px);
+}
+
+#detail-overlay .trt-sales-number {
+  font-size: 34px !important;
+  font-weight: 950 !important;
+  line-height: 1 !important;
+}
+
+#detail-overlay .trt-sales-unit {
+  align-self: baseline !important;
+  font-size: 18px !important;
+  font-weight: 850 !important;
+  line-height: 1 !important;
+  color: #17202a !important;
+}
+
+#detail-overlay .trt-sales-chart-icon {
+  align-self: center !important;
+  justify-self: end !important;
+  width: 42px !important;
+  height: 42px !important;
+  color: #c7ccd4 !important;
+}
+
+#detail-overlay .trt-sales-chart-icon svg {
+  width: 34px !important;
+  height: 34px !important;
+}
+
+#detail-overlay .trt-sales-chevron,
+#detail-overlay .fourp-trt-chevron {
+  color: #c9ced6 !important;
+}
+
+#detail-overlay .trt-sales-chevron svg,
+#detail-overlay .fourp-trt-chevron svg {
+  width: 82px !important;
+  height: 22px !important;
+}
+
+#detail-overlay .trt-sales-chevron path,
+#detail-overlay .fourp-trt-chevron path {
+  stroke-width: 3 !important;
+}
+
+#detail-overlay .trt-section-label,
+#detail-overlay .trt-archive-label {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+}
+
+#detail-overlay .trt-work-actions,
+#detail-overlay .trt-archive-tabs {
+  margin-top: 0 !important;
+}
