@@ -1,26 +1,32 @@
 {
-  "name": "VOG Мобильный помощник",
-  "short_name": "VOG Помощник",
-  "description": "Мобильная работа с ТРТ, визитами, задачами, рейтингом 4P и материалами.",
+  "name": "ВОГ МП",
+  "short_name": "ВОГ МП",
+  "description": "Мобильный помощник ВОГ",
   "lang": "ru",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f4f6f8",
-  "theme_color": "#176b4d",
+  "orientation": "portrait-primary",
+  "background_color": "#f3f6fb",
+  "theme_color": "#355a93",
   "icons": [
     {
       "src": "./icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "./icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
-  ],
-  "id": "./"
+  ]
 }

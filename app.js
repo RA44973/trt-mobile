@@ -3,8 +3,8 @@
 
 const DB_NAME = 'trt-mobile-db';
 
-const PRODUCT_NAME = 'VOG Мобильный помощник';
-const PRODUCT_SHORT_NAME = 'VOG Помощник';
+const PRODUCT_NAME = 'ВОГ МП';
+const PRODUCT_SHORT_NAME = 'ВОГ МП';
 
 function applyProductBranding() {
   document.title = PRODUCT_NAME;
@@ -3096,7 +3096,7 @@ function ensureTrtWorkspaceUi() {
   enforceTrtCardLayoutV35();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v4.6';
+  if (version) version.textContent = 'v4.7';
 }
 
 
