@@ -3088,7 +3088,7 @@ function ensureTrtWorkspaceUi() {
   ensureFourPTrtCardUi();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v3.3';
+  if (version) version.textContent = 'v3.4';
 }
 
 function switchScreen(name) {

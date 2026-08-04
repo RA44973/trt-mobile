@@ -1046,3 +1046,113 @@ body,
 #detail-overlay .trt-archive-tabs {
   margin-top: 0 !important;
 }
+
+/* v3.4 — единые радиусы и точная вертикальная сетка карточки ТРТ */
+#detail-overlay {
+  --trt-card-radius: 16px;
+  --trt-gap-main: 14px;
+  --trt-gap-section: 10px;
+}
+
+/* Все основные блоки имеют такой же радиус, как плашка «Направление». */
+#detail-overlay .detail-header,
+#detail-overlay .trt-info-grid .info-box,
+#detail-overlay .fourp-trt-card,
+#detail-overlay .trt-work-actions button,
+#detail-overlay .trt-archive-tabs .tab-button {
+  border-radius: var(--trt-card-radius) !important;
+}
+
+#detail-overlay .fourp-trt-card {
+  overflow: hidden !important;
+}
+
+#detail-overlay .fourp-trt-toggle,
+#detail-overlay .fourp-trt-toggle-main {
+  border-radius: var(--trt-card-radius) !important;
+}
+
+#detail-overlay .fourp-trt-details-wrap {
+  margin-top: 0 !important;
+  border-width: 1px 0 0 !important;
+  border-radius: 0 !important;
+}
+
+#detail-overlay .trt-sales-button {
+  border-radius: var(--trt-card-radius) !important;
+}
+
+#detail-overlay .trt-sales-button.open {
+  border-radius: var(--trt-card-radius) var(--trt-card-radius) 0 0 !important;
+}
+
+#detail-overlay .trt-sales-expanded {
+  border-radius: 0 0 var(--trt-card-radius) var(--trt-card-radius) !important;
+}
+
+/* Вертикальная последовательность без общего gap: интервалы задаются точно по ТЗ. */
+#detail-overlay #tab-info {
+  gap: 0 !important;
+}
+
+/* Шапка → Направление + Менеджер: 14 px */
+#detail-overlay .detail-header {
+  margin-bottom: var(--trt-gap-main) !important;
+}
+
+/* Направление + Менеджер → Рейтинг ТРТ: 14 px */
+#detail-overlay .trt-summary-card {
+  margin: 0 0 var(--trt-gap-main) !important;
+}
+
+/* Рейтинг ТРТ → ПРОДАЖИ / МЕС.: 14 px */
+#detail-overlay .fourp-trt-card {
+  margin: 0 0 var(--trt-gap-main) !important;
+}
+
+/* ПРОДАЖИ / МЕС. → Действие в ТРТ: 10 px */
+#detail-overlay .trt-sales-button:not(.open) {
+  margin: 0 0 var(--trt-gap-section) !important;
+}
+
+#detail-overlay .trt-sales-button.open {
+  margin: 0 !important;
+}
+
+#detail-overlay .trt-sales-expanded {
+  margin: 0 0 var(--trt-gap-section) !important;
+}
+
+/* Действие в ТРТ → Визит + Задача: 10 px */
+#detail-overlay #trt-actions-label {
+  margin: 0 0 var(--trt-gap-section) !important;
+}
+
+/* Визит + Задача → Архив: 10 px */
+#detail-overlay .trt-work-actions {
+  margin: 0 0 var(--trt-gap-section) !important;
+}
+
+/* Архив → Визиты + Задачи: 10 px */
+#detail-overlay .trt-archive-label {
+  margin: 0 0 var(--trt-gap-section) !important;
+}
+
+/* Визиты + Задачи → Фото + Видео: 14 px */
+#detail-overlay .trt-archive-tabs {
+  margin: 0 !important;
+  column-gap: 10px !important;
+  row-gap: var(--trt-gap-main) !important;
+}
+
+/* Типографика заголовков — один в один с «НАПРАВЛЕНИЕ». */
+#detail-overlay .trt-sales-button .info-label,
+#detail-overlay .trt-section-label,
+#detail-overlay .trt-archive-label {
+  color: var(--muted) !important;
+  font-size: 10px !important;
+  font-weight: 400 !important;
+  line-height: normal !important;
+  letter-spacing: .04em !important;
+  text-transform: uppercase !important;
+}
