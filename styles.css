@@ -1718,3 +1718,18 @@ body,
   #detail-overlay .fourp-trt-line b { font-size: 21px !important; }
   #detail-overlay #trt-fourp-total { font-size: 22px !important; }
 }
+
+/* v4.3 — финальная точная настройка блока рейтинга и продаж */
+#detail-overlay .trt-sales-number {
+  font-size: 48px !important;
+}
+#detail-overlay .trt-status-placeholder {
+  position: absolute !important;
+  right: 18px !important;
+  bottom: 13px !important;
+  width: auto !important;
+  display: block !important;
+  text-align: right !important;
+  justify-self: auto !important;
+  margin: 0 !important;
+}

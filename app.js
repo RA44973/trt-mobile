@@ -3096,7 +3096,7 @@ function ensureTrtWorkspaceUi() {
   enforceTrtCardLayoutV35();
 
   const version = document.querySelector('.topbar-title span');
-  if (version) version.textContent = 'v4.2';
+  if (version) version.textContent = 'v4.3';
 }
 
 
