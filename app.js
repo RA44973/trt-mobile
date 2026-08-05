@@ -2137,6 +2137,197 @@ async function syncTasksWithServer({silent=true}={}) {
 }
 
 
+
+const mediaFileSource = new WeakMap();
+
+function markMediaFileSource(files, source) {
+  Array.from(files || []).forEach(file => {
+    try { mediaFileSource.set(file, source || 'unknown'); } catch (_) {}
+  });
+}
+
+function exifDateToIso(value) {
+  const text = String(value || '').trim();
+  const match = text.match(/^(\d{4}):(\d{2}):(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/);
+  return match ? `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}` : text;
+}
+
+async function readImageDimensions(file) {
+  if (!String(file?.type || '').startsWith('image/')) return {};
+  try {
+    if ('createImageBitmap' in window) {
+      const bitmap = await createImageBitmap(file);
+      const result = {width:Number(bitmap.width || 0), height:Number(bitmap.height || 0)};
+      bitmap.close?.();
+      return result;
+    }
+  } catch (_) {}
+  return await new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      const result = {width:Number(image.naturalWidth || 0), height:Number(image.naturalHeight || 0)};
+      URL.revokeObjectURL(url);
+      resolve(result);
+    };
+    image.onerror = () => { URL.revokeObjectURL(url); resolve({}); };
+    image.src = url;
+  });
+}
+
+async function readVideoTechnicalMetadata(file) {
+  if (!String(file?.type || '').startsWith('video/')) return {};
+  return await new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    const done = result => {
+      URL.revokeObjectURL(url);
+      video.removeAttribute('src');
+      video.load();
+      resolve(result || {});
+    };
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => done({
+      width:Number(video.videoWidth || 0),
+      height:Number(video.videoHeight || 0),
+      durationSeconds:Number.isFinite(Number(video.duration)) ? Number(video.duration) : null,
+    });
+    video.onerror = () => done({});
+    video.src = url;
+  });
+}
+
+async function readJpegExif(file) {
+  if (!file || !/image\/(jpeg|jpg)/i.test(String(file.type || ''))) return {};
+  try {
+    const maxBytes = Math.min(Number(file.size || 0), 4 * 1024 * 1024);
+    const buffer = await file.slice(0, maxBytes).arrayBuffer();
+    const view = new DataView(buffer);
+    if (view.byteLength < 4 || view.getUint16(0, false) !== 0xFFD8) return {};
+
+    let offset = 2;
+    while (offset + 4 <= view.byteLength) {
+      if (view.getUint8(offset) !== 0xFF) { offset += 1; continue; }
+      const marker = view.getUint8(offset + 1);
+      const size = view.getUint16(offset + 2, false);
+      if (marker === 0xE1 && size >= 8 && offset + 2 + size <= view.byteLength) {
+        const exifStart = offset + 4;
+        const signature = String.fromCharCode(...new Uint8Array(buffer, exifStart, 6));
+        if (signature !== 'Exif\u0000\u0000') { offset += 2 + size; continue; }
+        const tiff = exifStart + 6;
+        const endianMark = view.getUint16(tiff, false);
+        const little = endianMark === 0x4949;
+        if (!little && endianMark !== 0x4D4D) return {};
+        const u16 = pos => view.getUint16(pos, little);
+        const u32 = pos => view.getUint32(pos, little);
+        const i32 = pos => view.getInt32(pos, little);
+        const typeSize = {1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8};
+        const ascii = (pos, count) => {
+          const bytes = new Uint8Array(buffer, pos, Math.max(0, Math.min(count, view.byteLength-pos)));
+          return new TextDecoder('ascii').decode(bytes).replace(/\0+$/,'').trim();
+        };
+        const readValue = (entry, type, count) => {
+          const bytes = (typeSize[type] || 1) * count;
+          const dataPos = bytes <= 4 ? entry + 8 : tiff + u32(entry + 8);
+          if (dataPos < 0 || dataPos + bytes > view.byteLength) return null;
+          if (type === 2) return ascii(dataPos, count);
+          const values=[];
+          for (let i=0;i<count;i++) {
+            let value=null;
+            const pos=dataPos + i*(typeSize[type] || 1);
+            if (type === 1 || type === 7) value=view.getUint8(pos);
+            else if (type === 3) value=u16(pos);
+            else if (type === 4) value=u32(pos);
+            else if (type === 9) value=i32(pos);
+            else if (type === 5) { const d=u32(pos+4); value=d ? u32(pos)/d : null; }
+            else if (type === 10) { const d=i32(pos+4); value=d ? i32(pos)/d : null; }
+            values.push(value);
+          }
+          return count === 1 ? values[0] : values;
+        };
+        const readIfd = relativeOffset => {
+          const result={};
+          const base=tiff + Number(relativeOffset || 0);
+          if (base < 0 || base + 2 > view.byteLength) return result;
+          const count=u16(base);
+          for (let i=0;i<count;i++) {
+            const entry=base+2+i*12;
+            if (entry+12 > view.byteLength) break;
+            const tag=u16(entry), type=u16(entry+2), itemCount=u32(entry+4);
+            result[tag]=readValue(entry,type,itemCount);
+          }
+          return result;
+        };
+        const root=readIfd(u32(tiff+4));
+        const exif=root[0x8769] ? readIfd(root[0x8769]) : {};
+        const gps=root[0x8825] ? readIfd(root[0x8825]) : {};
+        const gpsCoordinate = (parts, ref) => {
+          if (!Array.isArray(parts) || parts.length < 3) return null;
+          let value=Number(parts[0]) + Number(parts[1])/60 + Number(parts[2])/3600;
+          if (/^[SW]$/i.test(String(ref || ''))) value *= -1;
+          return Number.isFinite(value) ? value : null;
+        };
+        const latitude=gpsCoordinate(gps[2], gps[1]);
+        const longitude=gpsCoordinate(gps[4], gps[3]);
+        let altitude=Array.isArray(gps[6]) ? Number(gps[6][0]) : Number(gps[6]);
+        if (!Number.isFinite(altitude)) altitude=null;
+        if (Number(gps[5]) === 1 && altitude != null) altitude *= -1;
+        const capturedRaw=exif[0x9003] || exif[0x9004] || root[0x0132] || '';
+        return {
+          capturedAt:exifDateToIso(capturedRaw),
+          cameraMake:String(root[0x010F] || '').trim(),
+          cameraModel:String(root[0x0110] || '').trim(),
+          orientation:Number(root[0x0112] || 0) || null,
+          width:Number(exif[0xA002] || 0) || null,
+          height:Number(exif[0xA003] || 0) || null,
+          gpsLatitude:latitude,
+          gpsLongitude:longitude,
+          gpsAltitude:altitude,
+        };
+      }
+      if (!size || size < 2) break;
+      offset += 2 + size;
+    }
+  } catch (error) {
+    console.warn('Не удалось прочитать EXIF фотографии', error);
+  }
+  return {};
+}
+
+async function collectMediaMetadata(file, source, currentPosition=null) {
+  const exif = await readJpegExif(file);
+  const technical = String(file?.type || '').startsWith('video/')
+    ? await readVideoTechnicalMetadata(file)
+    : await readImageDimensions(file);
+  return {
+    source:source || 'unknown',
+    originalName:String(file?.name || ''),
+    originalType:String(file?.type || ''),
+    originalSize:Number(file?.size || 0),
+    fileLastModifiedAt:Number(file?.lastModified || 0) ? new Date(file.lastModified).toISOString() : '',
+    capturedAt:exif.capturedAt || '',
+    cameraMake:exif.cameraMake || '',
+    cameraModel:exif.cameraModel || '',
+    orientation:exif.orientation || null,
+    width:Number(exif.width || technical.width || 0) || null,
+    height:Number(exif.height || technical.height || 0) || null,
+    durationSeconds:Number.isFinite(Number(technical.durationSeconds)) ? Number(technical.durationSeconds) : null,
+    gpsLatitude:Number.isFinite(Number(exif.gpsLatitude)) ? Number(exif.gpsLatitude) : null,
+    gpsLongitude:Number.isFinite(Number(exif.gpsLongitude)) ? Number(exif.gpsLongitude) : null,
+    gpsAltitude:Number.isFinite(Number(exif.gpsAltitude)) ? Number(exif.gpsAltitude) : null,
+    uploadLatitude:Number.isFinite(Number(currentPosition?.lat)) ? Number(currentPosition.lat) : null,
+    uploadLongitude:Number.isFinite(Number(currentPosition?.lon)) ? Number(currentPosition.lon) : null,
+    uploadAccuracy:Number.isFinite(Number(currentPosition?.accuracy)) ? Number(currentPosition.accuracy) : null,
+    platform:String(navigator.platform || ''),
+    vendor:String(navigator.vendor || ''),
+    language:String(navigator.language || ''),
+    userAgent:String(navigator.userAgent || ''),
+    screenWidth:Number(window.screen?.width || 0) || null,
+    screenHeight:Number(window.screen?.height || 0) || null,
+    appName:'VOG Мобильный помощник',
+  };
+}
+
 function mediaUploadPayload(item) {
   return {
     id:String(item.id || ''),
@@ -2147,7 +2338,8 @@ function mediaUploadPayload(item) {
     name:String(item.name || 'файл'),
     type:String(item.type || 'application/octet-stream'),
     size:Number(item.size || item.blob?.size || 0),
-    createdAt:item.createdAt || new Date().toISOString()
+    createdAt:item.createdAt || new Date().toISOString(),
+    metadata:item.metadata && typeof item.metadata === 'object' ? item.metadata : {}
   };
 }
 
@@ -2172,6 +2364,7 @@ function normalizeRemoteMedia(item, local=null, syncedAt=null) {
     etag:item.etag || local?.etag || '',
     createdAt:item.createdAt || local?.createdAt || new Date().toISOString(),
     updatedAt:item.updatedAt || local?.updatedAt || null,
+    metadata:(item.metadata && typeof item.metadata === 'object') ? item.metadata : (local?.metadata || {}),
     downloadUrl:item.downloadUrl || local?.downloadUrl || '',
     downloadUrlReceivedAt:item.downloadUrl ? new Date().toISOString() : (local?.downloadUrlReceivedAt || null),
     serverSyncedAt:syncedAt || local?.serverSyncedAt || new Date().toISOString()
@@ -3710,7 +3903,8 @@ function chooseMediaSource(source) {
   input.click();
 }
 
-function appendVisitPhotoFiles(fileList) {
+function appendVisitPhotoFiles(fileList, source='unknown') {
+  markMediaFileSource(fileList, source);
   const files = Array.from(fileList || []).filter(file => String(file.type || '').startsWith('image/'));
   if (!files.length) return;
   visitFiles.push(...files);
@@ -3718,7 +3912,8 @@ function appendVisitPhotoFiles(fileList) {
   showToast(files.length > 1 ? `Добавлено фото: ${files.length}` : 'Фото добавлено');
 }
 
-async function appendVisitVideoFile(fileList) {
+async function appendVisitVideoFile(fileList, source='unknown') {
+  markMediaFileSource(fileList, source);
   const file = Array.from(fileList || []).find(item => String(item.type || '').startsWith('video/'));
   if (!file) return;
   try {
@@ -3736,7 +3931,8 @@ async function appendVisitVideoFile(fileList) {
   }
 }
 
-function appendTaskPhotoFiles(fileList) {
+function appendTaskPhotoFiles(fileList, source='unknown') {
+  markMediaFileSource(fileList, source);
   const files = Array.from(fileList || []).filter(file => String(file.type || '').startsWith('image/'));
   if (!files.length) return;
   taskCreationFiles.push(...files);
@@ -3744,7 +3940,8 @@ function appendTaskPhotoFiles(fileList) {
   showToast(files.length > 1 ? `Добавлено фото: ${files.length}` : 'Фото добавлено');
 }
 
-async function appendTaskVideoFile(fileList) {
+async function appendTaskVideoFile(fileList, source='unknown') {
+  markMediaFileSource(fileList, source);
   const file = Array.from(fileList || []).find(item => String(item.type || '').startsWith('video/'));
   if (!file) return;
   try {
@@ -3911,9 +4108,16 @@ async function prepareMediaFile(file) {
 
 async function saveMediaFiles(files, trtId, visitId=null, taskId=null, purpose=null) {
   const maxSize = 80 * 1024 * 1024;
+  const currentPosition = await geolocate().catch(() => null);
   for (const originalFile of files) {
     let file;
+    let metadata={};
     try {
+      metadata = await collectMediaMetadata(
+        originalFile,
+        mediaFileSource.get(originalFile) || 'unknown',
+        currentPosition,
+      );
       file = await prepareMediaFile(originalFile);
     } catch (error) {
       showToast(error.message || `Файл ${originalFile.name || ''} пропущен`);
@@ -3937,6 +4141,7 @@ async function saveMediaFiles(files, trtId, visitId=null, taskId=null, purpose=n
       serverSyncedAt:null,
       objectKey:'',
       downloadUrl:'',
+      metadata,
       blob:file
     });
   }
@@ -4232,7 +4437,7 @@ function ensureTaskCreationUi() {
     $('task-create-video-button').addEventListener('click', () => openMediaSourcePicker('video', 'task-create-video-input', 'task-create-video-library-input'));
     ['task-create-photo-input', 'task-create-photo-library-input'].forEach(id => {
       $(id).addEventListener('change', event => {
-        appendTaskPhotoFiles(event.target.files);
+        appendTaskPhotoFiles(event.target.files, id.includes('library') ? 'library' : 'camera');
         event.target.value = '';
       });
     });
@@ -4240,7 +4445,7 @@ function ensureTaskCreationUi() {
       $(id).addEventListener('change', async event => {
         const files = event.target.files;
         event.target.value = '';
-        await appendTaskVideoFile(files);
+        await appendTaskVideoFile(files, id.includes('library') ? 'library' : 'camera');
       });
     });
   }
@@ -5465,7 +5670,7 @@ function bindEvents() {
   $('visit-video-button').addEventListener('click', () => openMediaSourcePicker('video', 'visit-video-input', 'visit-video-library-input'));
   ['visit-photo-input', 'visit-photo-library-input'].forEach(id => {
     $(id).addEventListener('change', event => {
-      appendVisitPhotoFiles(event.target.files);
+      appendVisitPhotoFiles(event.target.files, id.includes('library') ? 'library' : 'camera');
       event.target.value = '';
     });
   });
@@ -5473,7 +5678,7 @@ function bindEvents() {
     $(id).addEventListener('change', async event => {
       const files = event.target.files;
       event.target.value = '';
-      await appendVisitVideoFile(files);
+      await appendVisitVideoFile(files, id.includes('library') ? 'library' : 'camera');
     });
   });
 

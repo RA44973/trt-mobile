@@ -2657,7 +2657,7 @@ input[type="search"] {
 #task-modal .modal-sheet{background:#fff!important;overflow-x:hidden!important;overscroll-behavior:contain!important}
 
 
-/* v6.3 — выбор источника фото и видео для нового визита и новой задачи */
+/* v6.4 — выбор источника и сбор метаданных фото/видео */
 .media-source-picker { z-index:3700 !important; }
 .media-source-picker .media-source-sheet {
   width:min(520px,100%) !important;
