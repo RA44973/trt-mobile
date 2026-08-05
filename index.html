@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="./styles.css?v=6.2-working-filters-task-picker">
+  <link rel="stylesheet" href="./styles.css?v=6.3-media-source-choice">
 </head>
 <body>
 <section id="auth-screen" class="auth-screen">
@@ -293,8 +293,10 @@
         <button id="visit-photo-button" class="secondary-button" type="button">Фото</button>
         <button id="visit-video-button" class="secondary-button" type="button">Видео</button>
       </div>
-      <input id="visit-photo-input" type="file" accept="image/*" capture="environment" multiple hidden>
-      <input id="visit-video-input" type="file" accept="video/*" capture="environment" multiple hidden>
+      <input id="visit-photo-input" type="file" accept="image/*" capture="environment" hidden>
+      <input id="visit-photo-library-input" type="file" accept="image/*" multiple hidden>
+      <input id="visit-video-input" type="file" accept="video/*" capture="environment" hidden>
+      <input id="visit-video-library-input" type="file" accept="video/*" hidden>
       <div id="visit-files-note" class="file-note">Файлы не выбраны</div>
     </div>
     <div class="modal-actions">
@@ -370,6 +372,6 @@
 <div id="toast" class="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="./app.js?v=6.2-working-filters-task-picker"></script>
+<script src="./app.js?v=6.3-media-source-choice"></script>
 </body>
 </html>

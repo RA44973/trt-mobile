@@ -2655,3 +2655,35 @@ input[type="search"] {
 .journal-filter-button{width:50px;height:50px;min-width:50px;border:0;border-radius:var(--mp-radius)!important;background:#fff;color:#355a93;box-shadow:0 4px 16px rgba(16,24,40,.14)}
 #task-modal{background:#fff!important;overflow:hidden!important}
 #task-modal .modal-sheet{background:#fff!important;overflow-x:hidden!important;overscroll-behavior:contain!important}
+
+
+/* v6.3 — выбор источника фото и видео для нового визита и новой задачи */
+.media-source-picker { z-index:3700 !important; }
+.media-source-picker .media-source-sheet {
+  width:min(520px,100%) !important;
+  max-height:88dvh !important;
+  padding:16px 14px calc(18px + env(safe-area-inset-bottom)) !important;
+  border-radius:var(--mp-radius) var(--mp-radius) 0 0 !important;
+  background:#fff !important;
+  overflow:auto !important;
+}
+.media-source-head { margin-bottom:14px !important; }
+.media-source-head .modal-title { margin:0 !important; font-size:19px !important; font-weight:900 !important; color:#17202a !important; }
+.media-source-options { display:grid; gap:10px; }
+.media-source-option {
+  width:100%; min-height:76px; border:1px solid #e4e7ec;
+  border-radius:var(--mp-radius); background:#fff; color:#17202a;
+  padding:11px 12px; display:grid; grid-template-columns:48px minmax(0,1fr) 20px;
+  gap:12px; align-items:center; text-align:left; cursor:pointer;
+}
+.media-source-option:active { background:#f4f7fb; transform:scale(.995); }
+.media-source-icon {
+  width:48px; height:48px; border-radius:var(--mp-radius); background:#eaf0f8;
+  color:#355a93; display:flex; align-items:center; justify-content:center;
+}
+.media-source-icon svg { width:26px; height:26px; fill:currentColor; }
+.media-source-copy { min-width:0; display:flex; flex-direction:column; gap:4px; }
+.media-source-copy strong { font-size:16px; line-height:1.25; font-weight:850; }
+.media-source-copy small { color:#667085; font-size:12px; line-height:1.35; }
+.media-source-arrow { color:#98a2b3; font-size:28px; line-height:1; text-align:right; }
+.media-source-cancel { margin-top:12px; }

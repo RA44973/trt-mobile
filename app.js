@@ -3584,7 +3584,9 @@ function openVisitModal(visitId=null, options={}) {
   }
 
   $('visit-photo-input').value = '';
+  $('visit-photo-library-input').value = '';
   $('visit-video-input').value = '';
+  $('visit-video-library-input').value = '';
 
   let notice = $('visit-edit-notice');
   if (existing && !notice) {
@@ -3630,6 +3632,134 @@ function updateVisitFilesNote() {
   $('visit-files-note').textContent = visitFiles.length
     ? `Выбрано файлов: ${visitFiles.length}`
     : 'Файлы не выбраны';
+}
+
+let mediaSourceTarget = null;
+
+function ensureMediaSourcePicker() {
+  if ($('media-source-picker')) return;
+
+  const picker = document.createElement('div');
+  picker.id = 'media-source-picker';
+  picker.className = 'modal-backdrop media-source-picker';
+  picker.innerHTML = `
+    <div class="modal-sheet media-source-sheet" role="dialog" aria-modal="true" aria-labelledby="media-source-title">
+      <div class="modal-handle"></div>
+      <div class="visit-goal-picker-head media-source-head">
+        <h2 id="media-source-title" class="modal-title">Добавить файл</h2>
+        <button id="media-source-close" class="visit-picker-close" type="button" aria-label="Закрыть">×</button>
+      </div>
+      <div class="media-source-options">
+        <button id="media-source-camera" class="media-source-option" type="button">
+          <span class="media-source-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M9 3 7.2 5H4a2 2 0 0 0-2 2v12h20V7a2 2 0 0 0-2-2h-3.2L15 3H9Zm3 14a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"/></svg>
+          </span>
+          <span class="media-source-copy"><strong id="media-source-camera-title">Снять на камеру</strong><small id="media-source-camera-note">Открыть камеру телефона</small></span>
+          <span class="media-source-arrow" aria-hidden="true">›</span>
+        </button>
+        <button id="media-source-library" class="media-source-option" type="button">
+          <span class="media-source-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M3 4h18v16H3V4Zm2 2v9.2l3.7-3.7 2.7 2.7 2.2-2.2L19 17.4V6H5Zm11 1.8a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z"/></svg>
+          </span>
+          <span class="media-source-copy"><strong>Загрузить с телефона</strong><small>Выбрать файл из галереи или памяти</small></span>
+          <span class="media-source-arrow" aria-hidden="true">›</span>
+        </button>
+      </div>
+      <button id="media-source-cancel" class="secondary-button media-source-cancel" type="button">Отмена</button>
+    </div>
+  `;
+  document.body.appendChild(picker);
+
+  const close = () => closeMediaSourcePicker();
+  $('media-source-close').addEventListener('click', close);
+  $('media-source-cancel').addEventListener('click', close);
+  picker.addEventListener('click', event => {
+    if (event.target === picker) close();
+  });
+  $('media-source-camera').addEventListener('click', () => chooseMediaSource('camera'));
+  $('media-source-library').addEventListener('click', () => chooseMediaSource('library'));
+}
+
+function openMediaSourcePicker(kind, cameraInputId, libraryInputId) {
+  ensureMediaSourcePicker();
+  mediaSourceTarget = {kind, cameraInputId, libraryInputId};
+
+  const isVideo = kind === 'video';
+  $('media-source-title').textContent = isVideo ? 'Добавить видео' : 'Добавить фото';
+  $('media-source-camera-title').textContent = isVideo ? 'Снять видео' : 'Снять на камеру';
+  $('media-source-camera-note').textContent = isVideo ? 'Открыть видеокамеру телефона' : 'Открыть камеру телефона';
+  $('media-source-picker').classList.add('open');
+}
+
+function closeMediaSourcePicker() {
+  $('media-source-picker')?.classList.remove('open');
+  mediaSourceTarget = null;
+}
+
+function chooseMediaSource(source) {
+  const target = mediaSourceTarget;
+  if (!target) return;
+  const inputId = source === 'camera' ? target.cameraInputId : target.libraryInputId;
+  const input = $(inputId);
+  closeMediaSourcePicker();
+  if (!input) {
+    showToast('Выбор файла сейчас недоступен');
+    return;
+  }
+  input.value = '';
+  input.click();
+}
+
+function appendVisitPhotoFiles(fileList) {
+  const files = Array.from(fileList || []).filter(file => String(file.type || '').startsWith('image/'));
+  if (!files.length) return;
+  visitFiles.push(...files);
+  updateVisitFilesNote();
+  showToast(files.length > 1 ? `Добавлено фото: ${files.length}` : 'Фото добавлено');
+}
+
+async function appendVisitVideoFile(fileList) {
+  const file = Array.from(fileList || []).find(item => String(item.type || '').startsWith('video/'));
+  if (!file) return;
+  try {
+    const duration = await getVideoDurationSeconds(file);
+    if (duration > MAX_MEDIA_VIDEO_SECONDS + 0.25) {
+      showToast(`Видео длится ${Math.ceil(duration)} сек. Максимум на один визит — 30 сек.`);
+      return;
+    }
+    visitFiles = visitFiles.filter(item => !String(item.type || '').startsWith('video/'));
+    visitFiles.push(file);
+    updateVisitFilesNote();
+    showToast('Видео добавлено. При сохранении оно будет оптимизировано.');
+  } catch (error) {
+    showToast(error.message || 'Не удалось прочитать видео');
+  }
+}
+
+function appendTaskPhotoFiles(fileList) {
+  const files = Array.from(fileList || []).filter(file => String(file.type || '').startsWith('image/'));
+  if (!files.length) return;
+  taskCreationFiles.push(...files);
+  updateTaskCreationFilesNote();
+  showToast(files.length > 1 ? `Добавлено фото: ${files.length}` : 'Фото добавлено');
+}
+
+async function appendTaskVideoFile(fileList) {
+  const file = Array.from(fileList || []).find(item => String(item.type || '').startsWith('video/'));
+  if (!file) return;
+  try {
+    const duration = await getVideoDurationSeconds(file);
+    if (duration > MAX_MEDIA_VIDEO_SECONDS + 0.25) {
+      showToast(`Видео длится ${Math.ceil(duration)} сек. Максимум — 30 сек.`);
+      return;
+    }
+    taskCreationFiles = taskCreationFiles.filter(item => !String(item.type || '').startsWith('video/'));
+    taskCreationFiles.push(file);
+    updateTaskCreationFilesNote();
+    showToast('Видео добавлено. При сохранении оно будет оптимизировано.');
+  } catch (error) {
+    showToast(error.message || 'Не удалось прочитать видео');
+  }
 }
 
 const MAX_MEDIA_VIDEO_SECONDS = 30;
@@ -4090,21 +4220,28 @@ function ensureTaskCreationUi() {
           <button id="task-create-photo-button" class="secondary-button" type="button">Фото</button>
           <button id="task-create-video-button" class="secondary-button" type="button">Видео</button>
         </div>
-        <input id="task-create-photo-input" type="file" accept="image/*" capture="environment" multiple hidden>
-        <input id="task-create-video-input" type="file" accept="video/*" capture="environment" multiple hidden>
+        <input id="task-create-photo-input" type="file" accept="image/*" capture="environment" hidden>
+        <input id="task-create-photo-library-input" type="file" accept="image/*" multiple hidden>
+        <input id="task-create-video-input" type="file" accept="video/*" capture="environment" hidden>
+        <input id="task-create-video-library-input" type="file" accept="video/*" hidden>
         <div id="task-create-files-note" class="file-note">Файлы не выбраны</div>
       </div>
     `);
 
-    $('task-create-photo-button').addEventListener('click', () => $('task-create-photo-input').click());
-    $('task-create-video-button').addEventListener('click', () => $('task-create-video-input').click());
-    $('task-create-photo-input').addEventListener('change', event => {
-      taskCreationFiles.push(...Array.from(event.target.files || []));
-      updateTaskCreationFilesNote();
+    $('task-create-photo-button').addEventListener('click', () => openMediaSourcePicker('photo', 'task-create-photo-input', 'task-create-photo-library-input'));
+    $('task-create-video-button').addEventListener('click', () => openMediaSourcePicker('video', 'task-create-video-input', 'task-create-video-library-input'));
+    ['task-create-photo-input', 'task-create-photo-library-input'].forEach(id => {
+      $(id).addEventListener('change', event => {
+        appendTaskPhotoFiles(event.target.files);
+        event.target.value = '';
+      });
     });
-    $('task-create-video-input').addEventListener('change', event => {
-      taskCreationFiles.push(...Array.from(event.target.files || []));
-      updateTaskCreationFilesNote();
+    ['task-create-video-input', 'task-create-video-library-input'].forEach(id => {
+      $(id).addEventListener('change', async event => {
+        const files = event.target.files;
+        event.target.value = '';
+        await appendTaskVideoFile(files);
+      });
     });
   }
 
@@ -4312,7 +4449,9 @@ function openTaskModal() {
   Array.from($('task-title').options || []).filter(option => option.dataset.customTask === '1').forEach(option => option.remove());
   updateTaskTitleTrigger();
   $('task-create-photo-input').value = '';
+  $('task-create-photo-library-input').value = '';
   $('task-create-video-input').value = '';
+  $('task-create-video-library-input').value = '';
   updateTaskCreationFilesNote();
   fillTaskEmployeeSelects();
   $('task-due').value = '';
@@ -5321,30 +5460,21 @@ function bindEvents() {
   $('photo-input').addEventListener('change', event => addStandaloneMedia(event.target.files));
   $('video-input').addEventListener('change', event => addStandaloneMedia(event.target.files));
 
-  $('visit-photo-button').addEventListener('click', () => $('visit-photo-input').click());
-  $('visit-video-button').addEventListener('click', () => $('visit-video-input').click());
-  $('visit-photo-input').addEventListener('change', event => {
-    visitFiles.push(...Array.from(event.target.files || []));
-    event.target.value = '';
-    updateVisitFilesNote();
+  ensureMediaSourcePicker();
+  $('visit-photo-button').addEventListener('click', () => openMediaSourcePicker('photo', 'visit-photo-input', 'visit-photo-library-input'));
+  $('visit-video-button').addEventListener('click', () => openMediaSourcePicker('video', 'visit-video-input', 'visit-video-library-input'));
+  ['visit-photo-input', 'visit-photo-library-input'].forEach(id => {
+    $(id).addEventListener('change', event => {
+      appendVisitPhotoFiles(event.target.files);
+      event.target.value = '';
+    });
   });
-  $('visit-video-input').addEventListener('change', async event => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    try {
-      const duration = await getVideoDurationSeconds(file);
-      if (duration > MAX_MEDIA_VIDEO_SECONDS + 0.25) {
-        showToast(`Видео длится ${Math.ceil(duration)} сек. Максимум на один визит — 30 сек.`);
-        return;
-      }
-      visitFiles = visitFiles.filter(item => !String(item.type || '').startsWith('video/'));
-      visitFiles.push(file);
-      updateVisitFilesNote();
-      showToast('Видео добавлено. При сохранении оно будет оптимизировано.');
-    } catch (error) {
-      showToast(error.message || 'Не удалось прочитать видео');
-    }
+  ['visit-video-input', 'visit-video-library-input'].forEach(id => {
+    $(id).addEventListener('change', async event => {
+      const files = event.target.files;
+      event.target.value = '';
+      await appendVisitVideoFile(files);
+    });
   });
 
   $('mobile-import-button').addEventListener('click', () => $('mobile-import-input').click());
