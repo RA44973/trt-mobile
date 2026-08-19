@@ -3,7 +3,7 @@
   "short_name": "VOG Beta",
   "description": "Beta-версия VOG Мобильного помощника для безопасного тестирования на Yandex Cloud",
   "lang": "ru",
-  "start_url": "./?channel=beta",
+  "start_url": "./?channel=beta&v=0.3",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -29,5 +29,5 @@
       "purpose": "maskable"
     }
   ],
-  "version": "beta-0.1"
+  "version": "beta-0.3"
 }
