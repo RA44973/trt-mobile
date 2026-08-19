@@ -42,3 +42,25 @@ jobs:
           grep -q "vog-mobile-beta-" sw.js
           grep -q "popstate" beta-device.js
           grep -q "geolocation" beta-device.js
+
+      - name: Build Yandex Object Storage package
+        run: |
+          mkdir -p dist
+          cp index.html app.js styles.css sw.js manifest.webmanifest beta-overrides.js beta-card.js beta-device.js favicon-32.png icon-192.png icon-512.png icon-512-maskable.png dist/
+          cat > dist/UPLOAD_TO_YANDEX.txt <<'EOF'
+          VOG Мобильный помощник Beta 0.4
+
+          Назначение: отдельный Beta-сайт в Yandex Object Storage.
+          Загружать В СОДЕРЖИМОЕ отдельного Beta-bucket все файлы из этой папки, без внешней родительской папки.
+          Стартовый документ статического сайта: index.html
+          Рабочий сайт и ветку main не изменять.
+          EOF
+          (cd dist && zip -r ../VOG_MP_BETA_0_4_YANDEX_OBJECT_STORAGE.zip .)
+
+      - name: Upload Beta package
+        uses: actions/upload-artifact@v4
+        with:
+          name: VOG_MP_BETA_0_4_YANDEX_OBJECT_STORAGE
+          path: VOG_MP_BETA_0_4_YANDEX_OBJECT_STORAGE.zip
+          if-no-files-found: error
+          retention-days: 30
