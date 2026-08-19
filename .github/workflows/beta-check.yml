@@ -1,0 +1,37 @@
+name: Beta JavaScript check
+
+on:
+  push:
+    branches:
+      - beta/yandex-mobile
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Beta
+        uses: actions/checkout@v4
+
+      - name: Check app.js
+        run: node --check app.js
+
+      - name: Check beta-overrides.js
+        run: node --check beta-overrides.js
+
+      - name: Check beta-card.js
+        run: node --check beta-card.js
+
+      - name: Check service worker
+        run: node --check sw.js
+
+      - name: Verify Beta wiring
+        run: |
+          grep -q "beta-overrides.js" index.html
+          grep -q "beta-card.js" beta-overrides.js
+          grep -q "beta-card.js" sw.js
+          grep -q "VOG Мобильный помощник Beta" index.html
+          grep -q "vog-mobile-beta-" sw.js
