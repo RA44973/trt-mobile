@@ -25,13 +25,20 @@ jobs:
       - name: Check beta-card.js
         run: node --check beta-card.js
 
+      - name: Check beta-device.js
+        run: node --check beta-device.js
+
       - name: Check service worker
         run: node --check sw.js
 
       - name: Verify Beta wiring
         run: |
           grep -q "beta-overrides.js" index.html
+          grep -q "beta-device.js" index.html
           grep -q "beta-card.js" beta-overrides.js
           grep -q "beta-card.js" sw.js
+          grep -q "beta-device.js" sw.js
           grep -q "VOG Мобильный помощник Beta" index.html
           grep -q "vog-mobile-beta-" sw.js
+          grep -q "popstate" beta-device.js
+          grep -q "geolocation" beta-device.js
