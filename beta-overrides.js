@@ -1,9 +1,9 @@
 'use strict';
 
-// VOG Мобильный помощник Beta 0.2
+// VOG Мобильный помощник Beta 0.3
 // Additive override layer: production app.js remains unchanged.
 
-const BETA_CHANNEL_VERSION = 'beta-0.2-map-v7';
+const BETA_CHANNEL_VERSION = 'beta-0.3-map-v7-card';
 let betaMapPoints = [];
 let betaMapStatus = null;
 let betaSelectedCardKey = '';
@@ -443,3 +443,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+
+// Load the card/plan layer only after the map identity layer is installed.
+(function betaLoadCardLayer() {
+  if (document.querySelector('script[data-beta-card-layer="1"]')) return;
+  const script = document.createElement('script');
+  script.src = './beta-card.js?v=beta-0.3-card-sales-plan';
+  script.async = false;
+  script.dataset.betaCardLayer = '1';
+  script.onerror = () => console.error('Beta: не удалось загрузить beta-card.js');
+  document.head.appendChild(script);
+})();
