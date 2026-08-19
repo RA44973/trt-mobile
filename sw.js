@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'vog-mobile-beta-';
-const CACHE_NAME = `${CACHE_PREFIX}0-3-card-sales-plan`;
+const CACHE_NAME = `${CACHE_PREFIX}0-4-device-navigation`;
 const SHELL = [
   './',
   './index.html',
@@ -7,6 +7,7 @@ const SHELL = [
   './app.js',
   './beta-overrides.js',
   './beta-card.js',
+  './beta-device.js',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png'
@@ -60,6 +61,7 @@ self.addEventListener('fetch', event => {
     requestUrl.pathname.endsWith('/app.js') ||
     requestUrl.pathname.endsWith('/beta-overrides.js') ||
     requestUrl.pathname.endsWith('/beta-card.js') ||
+    requestUrl.pathname.endsWith('/beta-device.js') ||
     requestUrl.pathname.endsWith('/styles.css') ||
     requestUrl.pathname.endsWith('/index.html') ||
     requestUrl.pathname.endsWith('/manifest.webmanifest');
