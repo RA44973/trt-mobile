@@ -6,9 +6,9 @@
   <meta name="theme-color" content="#355a93">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="ВОГ МП">
-  <title>ВОГ МП</title>
-  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="apple-mobile-web-app-title" content="VOG Beta">
+  <title>VOG Мобильный помощник Beta</title>
+  <link rel="manifest" href="./manifest.webmanifest?v=beta-0.2">
   <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
@@ -18,7 +18,7 @@
 <section id="auth-screen" class="auth-screen">
   <div class="auth-card">
     <div class="auth-logo">ТРТ</div>
-    <h1>Мобильный помощник</h1>
+    <h1>Мобильный помощник Beta</h1>
     <p class="auth-subtitle">Войдите под своей рабочей учётной записью.</p>
     <form id="login-form" novalidate>
       <div class="field-group">
@@ -42,7 +42,7 @@
   <main>
     <section id="screen-map" class="screen active">
       <div class="map-toolbar">
-        <input id="map-search" class="search-box" type="search" placeholder="Поиск ТРТ или адреса" aria-label="Поиск по карте">
+        <input id="map-search" class="search-box" type="search" placeholder="Направление, город или ТРТ" aria-label="Поиск по направлению, городу или ТРТ">
         <button id="map-location-button" class="floating-button" type="button" aria-label="Моё местоположение">
           <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm8.94 3A9 9 0 0 0 13 3.06V1h-2v2.06A9 9 0 0 0 3.06 11H1v2h2.06A9 9 0 0 0 11 20.94V23h2v-2.06A9 9 0 0 0 20.94 13H23v-2h-2.06ZM12 19a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg>
         </button>
@@ -50,7 +50,7 @@
       <div id="map"></div>
       <div id="map-empty" class="empty-state hidden">
         <h3>Данные ТРТ ещё не загружены</h3>
-        <p>Перейдите в настройки и импортируйте JSON, скачанный с компьютерного сайта.</p>
+        <p>Подключитесь к интернету и откройте карту повторно.</p>
       </div>
     </section>
 
@@ -106,9 +106,9 @@
         <div class="card settings-block">
           <h3 class="card-title">Импорт ТРТ</h3>
           <div class="import-zone">
-            <p>Выберите файл <b>ТРТ_для_мобильного_приложения…json</b>, скачанный с компьютерной версии.</p>
+            <p>Резервный импорт JSON сохранён только для администратора. Основная Beta-карта получает ТРТ напрямую из актуального API.</p>
             <input id="mobile-import-input" type="file" accept=".json,application/json" hidden>
-            <button id="mobile-import-button" class="primary-button" type="button">Загрузить данные ТРТ</button>
+            <button id="mobile-import-button" class="primary-button" type="button">Загрузить резервный JSON</button>
           </div>
           <div id="import-status" class="file-note"></div>
         </div>
@@ -128,10 +128,9 @@
         <div class="card settings-block">
           <h3 class="card-title">Хранение</h3>
           <div class="notice">
-            В первой версии карточки, задачи, посещения, фото и видео хранятся только на этом устройстве.
-            Не очищайте данные браузера. Синхронизация с компьютером и сотрудниками будет подключена следующим этапом.
+            Beta работает параллельно рабочему приложению. Данные Beta и её PWA-кэш изолированы от рабочей версии.
           </div>
-          <button id="clear-app-button" class="danger-button" type="button" style="margin-top:12px;">Удалить все данные приложения</button>
+          <button id="clear-app-button" class="danger-button" type="button" style="margin-top:12px;">Удалить все данные Beta на устройстве</button>
         </div>
       </div>
     </section>
@@ -151,7 +150,7 @@
       Задачи
     </button>
     <button class="nav-button" data-screen="settings" type="button">
-      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.07-.94l2.03-1.58-2-3.46-2.39.96a7.4 7.4 0 0 0-1.62-.94L14.73 3h-4l-.36 2.04c-.58.24-1.12.55-1.62.94l-2.39-.96-2 3.46 2.03 1.58c-.05.31-.08.65-.08.94s.03.63.08.94l-2.03 1.58 2 3.46 2.39-.96c.5.39 1.04.7 1.62.94L10.73 21h4l.36-2.04c.58-.24 1.12-.55 1.62-.94l2.39.96 2-3.46-2.02-1.58ZM12.73 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/></svg>
+      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.07-.94l2.03-1.58-2-3.46-2.39.96a7.4 7.4 0 0 0-1.62-.94L14.73 3h-4l-.36 2.04c-.58.24-1.12.55-1.62.94l-2.39-.96-2 3.46 2.03 1.58c-.05.31-.08.65-.08.94s.03.63.08.94l-2.03 1.58 2 3.46 2.39-.96c.5.39 1.04.7 1.62.94L10.73 21h4l.36-2.04c.58.24 1.12.55 1.62.94l2.39.96 2-3.46-2.02-1.58ZM12.73 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/></svg>
       Настройки
     </button>
   </nav>
@@ -190,78 +189,35 @@
       <button class="tab-button active" data-tab="info" type="button">Карточка</button>
       <button class="tab-button" data-tab="sales" type="button">Продажи</button>
       <button class="tab-button" data-tab="visits" type="button">Визиты</button>
-      <button class="tab-button" data-tab="media" type="button">Фото/видео</button>
       <button class="tab-button" data-tab="tasks" type="button">Задачи</button>
+      <button class="tab-button" data-tab="media" type="button">Фото и видео</button>
     </div>
 
-    <div id="tab-info" class="tab-panel active">
+    <section id="tab-info" class="tab-panel active">
       <div class="card">
         <h3 class="card-title">Дополнительная информация</h3>
-        <div class="form-grid">
-          <div class="field-group">
-            <label class="field-label" for="edit-contact">Контактное лицо</label>
-            <input id="edit-contact" class="text-input" type="text">
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="edit-phone">Телефон</label>
-            <input id="edit-phone" class="text-input" type="tel">
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="edit-actual-size">Фактический размер</label>
-            <input id="edit-actual-size" class="text-input" type="number" step="1" min="0">
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="edit-stands">Количество стендов</label>
-            <input id="edit-stands" class="text-input" type="number" step="1" min="0">
-          </div>
-        </div>
-        <div class="field-group">
-          <label class="field-label" for="edit-potential">Потенциал точки</label>
-          <select id="edit-potential" class="select-input">
-            <option value="">Не определён</option>
-            <option value="Высокий">Высокий</option>
-            <option value="Средний">Средний</option>
-            <option value="Низкий">Низкий</option>
-          </select>
-        </div>
-        <div class="field-group">
-          <label class="field-label" for="edit-brands">Бренды и конкуренты</label>
-          <textarea id="edit-brands" class="text-area"></textarea>
-        </div>
-        <div class="field-group">
-          <label class="field-label" for="edit-notes">Общие заметки</label>
-          <textarea id="edit-notes" class="text-area"></textarea>
-        </div>
+        <div class="field-group"><label class="field-label" for="edit-contact">Контакт</label><input id="edit-contact" class="text-input" type="text"></div>
+        <div class="field-group"><label class="field-label" for="edit-phone">Телефон</label><input id="edit-phone" class="text-input" type="tel"></div>
+        <div class="field-group"><label class="field-label" for="edit-actual-size">Фактический размер ТРТ</label><input id="edit-actual-size" class="text-input" type="number" min="0"></div>
+        <div class="field-group"><label class="field-label" for="edit-stands">Количество стендов</label><input id="edit-stands" class="text-input" type="number" min="0"></div>
+        <div class="field-group"><label class="field-label" for="edit-potential">Потенциал</label><select id="edit-potential" class="select-input"><option value="">Не указано</option><option>Низкий</option><option>Средний</option><option>Высокий</option></select></div>
+        <div class="field-group"><label class="field-label" for="edit-brands">Бренды</label><input id="edit-brands" class="text-input" type="text"></div>
+        <div class="field-group"><label class="field-label" for="edit-notes">Заметки</label><textarea id="edit-notes" class="text-area"></textarea></div>
         <button id="save-trt-button" class="primary-button" type="button">Сохранить карточку</button>
       </div>
-    </div>
+    </section>
 
-
-    <div id="tab-sales" class="tab-panel">
-      <div id="sales-content"></div>
-    </div>
-
-    <div id="tab-visits" class="tab-panel">
-      <div id="visits-list" class="timeline"></div>
-    </div>
-
-    <div id="tab-media" class="tab-panel">
+    <section id="tab-sales" class="tab-panel"><div id="sales-content" class="card"></div></section>
+    <section id="tab-visits" class="tab-panel"><div id="visits-list"></div></section>
+    <section id="tab-tasks" class="tab-panel"><div id="point-tasks-list"></div></section>
+    <section id="tab-media" class="tab-panel">
       <div class="card">
-        <h3 class="card-title">Добавить материалы</h3>
-        <div class="button-row">
-          <button id="add-photo-button" class="secondary-button" type="button">Сделать фото</button>
-          <button id="add-video-button" class="secondary-button" type="button">Снять видео</button>
-        </div>
+        <div class="button-row"><button id="add-photo-button" class="secondary-button" type="button">Добавить фото</button><button id="add-video-button" class="secondary-button" type="button">Добавить видео</button></div>
         <input id="photo-input" type="file" accept="image/*" capture="environment" multiple hidden>
-        <input id="video-input" type="file" accept="video/*" capture="environment" multiple hidden>
-        <div class="file-note">Файлы сохраняются на этом устройстве. Большие видео могут быстро занять память браузера.</div>
+        <input id="video-input" type="file" accept="video/*" capture="environment" hidden>
       </div>
       <div id="media-grid" class="media-grid"></div>
-    </div>
-
-    <div id="tab-tasks" class="tab-panel">
-      <div id="point-tasks-list"></div>
-    </div>
+    </section>
   </div>
 </section>
 
@@ -269,40 +225,19 @@
   <div class="modal-sheet">
     <div class="modal-handle"></div>
     <h2 class="modal-title">Новый визит</h2>
+    <div class="field-group"><label class="field-label" for="visit-result">Цель визита *</label><select id="visit-result" class="select-input"><option value="">Выберите цель</option></select></div>
+    <div class="field-group"><label class="field-label" for="visit-next-step">Следующий шаг</label><input id="visit-next-step" class="text-input" type="text"></div>
+    <div class="field-group"><label class="field-label" for="visit-comment">Комментарий</label><textarea id="visit-comment" class="text-area"></textarea></div>
     <div class="field-group">
-      <label class="field-label" for="visit-result">Цель визита</label>
-      <select id="visit-result" class="select-input">
-        <option value="Переговоры проведены">Переговоры проведены</option>
-        <option value="Договорённость достигнута">Договорённость достигнута</option>
-        <option value="Нужен повторный визит">Нужен повторный визит</option>
-        <option value="Отказ">Отказ</option>
-        <option value="Точка закрыта">Точка закрыта</option>
-      </select>
-    </div>
-    <div class="field-group">
-      <label class="field-label" for="visit-next-step">Следующий шаг</label>
-      <input id="visit-next-step" class="text-input" type="text" placeholder="Например: отправить КП">
-    </div>
-    <div class="field-group">
-      <label class="field-label" for="visit-comment">Комментарий</label>
-      <textarea id="visit-comment" class="text-area" placeholder="Что увидели и о чём договорились"></textarea>
-    </div>
-    <div class="field-group">
-      <label class="field-label">Фото и видео к визиту</label>
-      <div class="button-row">
-        <button id="visit-photo-button" class="secondary-button" type="button">Фото</button>
-        <button id="visit-video-button" class="secondary-button" type="button">Видео</button>
-      </div>
+      <label class="field-label">Фото и видео</label>
+      <div class="button-row"><button id="visit-photo-button" class="secondary-button" type="button">Фото</button><button id="visit-video-button" class="secondary-button" type="button">Видео</button></div>
       <input id="visit-photo-input" type="file" accept="image/*" capture="environment" hidden>
       <input id="visit-photo-library-input" type="file" accept="image/*" multiple hidden>
       <input id="visit-video-input" type="file" accept="video/*" capture="environment" hidden>
       <input id="visit-video-library-input" type="file" accept="video/*" hidden>
       <div id="visit-files-note" class="file-note">Файлы не выбраны</div>
     </div>
-    <div class="modal-actions">
-      <button class="secondary-button modal-cancel" type="button">Отмена</button>
-      <button id="save-visit-button" class="primary-button" type="button">Сохранить визит</button>
-    </div>
+    <div class="modal-actions"><button class="secondary-button modal-cancel" type="button">Отмена</button><button id="save-visit-button" class="primary-button" type="button">Сохранить визит</button></div>
   </div>
 </div>
 
@@ -310,62 +245,31 @@
   <div class="modal-sheet">
     <div class="modal-handle"></div>
     <div id="task-create-header-host"></div>
-    <div class="field-group">
-      <label class="field-label" for="task-title">Название</label>
-      <input id="task-title" class="text-input" type="text" placeholder="Что нужно сделать">
+    <div class="field-group"><label class="field-label" for="task-title">Задача *</label><input id="task-title" class="text-input" type="text"></div>
+    <div class="field-group"><label class="field-label" for="task-assignee">Исполнитель</label><select id="task-assignee" class="select-input"></select></div>
+    <div class="field-group"><label class="field-label" for="task-observer">Наблюдатель</label><select id="task-observer" class="select-input"><option value="">Без наблюдателя</option></select></div>
+    <div class="task-timing-row">
+      <div class="field-group"><label class="field-label" for="task-due">Срок *</label><input id="task-due" type="date" hidden><button id="task-due-trigger" class="task-date-trigger empty" type="button">Выберите дату</button></div>
+      <div class="field-group"><label class="field-label" for="task-priority">Приоритет</label><select id="task-priority" class="select-input"><option>Высокий</option><option selected>Средний</option><option>Низкий</option></select></div>
     </div>
-    <div class="field-group">
-      <label class="field-label" for="task-assignee">Исполнитель</label>
-      <select id="task-assignee" class="select-input"></select>
-    </div>
-    <div class="field-group">
-      <label class="field-label" for="task-observer">Наблюдатель</label>
-      <select id="task-observer" class="select-input">
-        <option value="">Без наблюдателя</option>
-      </select>
-    </div>
-    <div class="form-grid task-timing-row">
-      <div class="field-group">
-        <label class="field-label" for="task-due">Срок</label>
-        <input id="task-due" type="hidden">
-        <button id="task-due-trigger" class="task-date-trigger empty" type="button" aria-haspopup="dialog">Выберите дату</button>
-      </div>
-      <div class="field-group">
-        <label class="field-label" for="task-priority">Приоритет</label>
-        <select id="task-priority" class="select-input">
-          <option value="Средний">Средний</option>
-          <option value="Высокий">Высокий</option>
-          <option value="Низкий">Низкий</option>
-        </select>
-      </div>
-    </div>
-    <div class="field-group">
-      <label class="field-label" for="task-description">Описание</label>
-      <textarea id="task-description" class="text-area"></textarea>
-    </div>
-    <div class="modal-actions">
-      <button class="secondary-button modal-cancel" type="button">Отмена</button>
-      <button id="save-task-button" class="primary-button" type="button">Создать задачу</button>
-    </div>
+    <div class="field-group"><label class="field-label" for="task-description">Описание</label><textarea id="task-description" class="text-area"></textarea></div>
+    <div class="modal-actions"><button class="secondary-button modal-cancel" type="button">Отмена</button><button id="save-task-button" class="primary-button" type="button">Создать задачу</button></div>
   </div>
 </div>
 
-
 <div id="point-create-modal" class="modal-backdrop point-create-modal">
-  <div class="modal-sheet point-create-sheet">
-    <button id="point-create-close" class="round-close-button" type="button" aria-label="Закрыть">×</button>
+  <div class="modal-sheet">
     <div class="modal-handle"></div>
-    <h2 class="modal-title">Новая ТРТ</h2>
-    <div class="field-group"><label class="field-label" for="point-manager">Менеджер</label><input id="point-manager" class="text-input" type="text" readonly></div>
+    <div class="visit-goal-picker-head"><h2 class="modal-title">Новая ТРТ</h2><button id="point-create-close" class="visit-picker-close" type="button" aria-label="Закрыть">×</button></div>
+    <div class="field-group"><label class="field-label" for="point-client">Клиент</label><input id="point-client" class="text-input" type="text"></div>
     <div class="field-group"><label class="field-label" for="point-direction">Направление деятельности</label><select id="point-direction" class="select-input"></select></div>
-    <div class="field-group"><label class="field-label" for="point-client">Клиент</label><input id="point-client" class="text-input" type="text" placeholder="Наименование клиента"></div>
-    <div class="field-group"><label class="field-label" for="point-address">Торговая точка.Месторасположение</label><textarea id="point-address" class="text-area point-address" readonly placeholder="Укажите точку на карте"></textarea></div>
-    <div class="form-grid">
-      <div class="field-group"><label class="field-label" for="point-format">Формат ТРТ</label><select id="point-format" class="select-input"></select></div>
-      <div class="field-group"><label class="field-label" for="point-status">Статус ТРТ</label><select id="point-status" class="select-input"><option value="АКБ">АКБ</option><option value="НАКБ">НАКБ</option><option value="ЦАКБ">ЦАКБ</option><option value="ЦНАКБ">ЦНАКБ</option></select></div>
-    </div>
-    <div class="field-group point-map-group"><label class="field-label">Укажите точку на карте</label><div id="point-picker-map"></div><div id="point-map-note" class="file-note">Нажмите на нужное здание или место. Адрес и координаты заполнятся автоматически.</div></div>
-    <div class="modal-actions"><button class="secondary-button modal-cancel" type="button">Отмена</button><button id="save-point-button" class="primary-button" type="button">Добавить ТРТ</button></div>
+    <div class="field-group"><label class="field-label" for="point-format">Формат ТРТ</label><select id="point-format" class="select-input"></select></div>
+    <div class="field-group"><label class="field-label" for="point-status">Статус</label><select id="point-status" class="select-input"><option value="АКБ">АКБ</option><option value="Потенциальная">Потенциальная</option></select></div>
+    <div class="field-group"><label class="field-label" for="point-manager">Менеджер</label><input id="point-manager" class="text-input" type="text" readonly></div>
+    <div class="field-group"><label class="field-label" for="point-address">Адрес</label><textarea id="point-address" class="text-area" readonly></textarea></div>
+    <div id="point-picker-map" style="height:260px;border-radius:14px;overflow:hidden;margin-top:10px;"></div>
+    <div id="point-map-note" class="file-note"></div>
+    <div class="modal-actions"><button id="save-point-button" class="primary-button" type="button">Добавить ТРТ</button></div>
   </div>
 </div>
 
@@ -373,5 +277,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="./app.js?v=6.4-media-metadata-gallery"></script>
+<script src="./beta-overrides.js?v=beta-0.2-map-v7"></script>
 </body>
 </html>
