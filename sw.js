@@ -1,4 +1,5 @@
-const CACHE_NAME = 'trt-mobile-v2-9-vog-mobile-helper';
+const CACHE_PREFIX = 'vog-mobile-beta-';
+const CACHE_NAME = `${CACHE_PREFIX}0-1`;
 const SHELL = [
   './',
   './index.html',
@@ -23,7 +24,7 @@ self.addEventListener('activate', event => {
     caches.keys().then(keys =>
       Promise.all(
         keys
-          .filter(key => key.startsWith('trt-mobile-') && key !== CACHE_NAME)
+          .filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
           .map(key => caches.delete(key))
       )
     )
