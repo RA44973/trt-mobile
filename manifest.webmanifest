@@ -1,9 +1,9 @@
 {
-  "name": "ВОГ МП",
-  "short_name": "ВОГ МП",
-  "description": "Мобильный помощник ВОГ",
+  "name": "VOG Мобильный помощник Beta",
+  "short_name": "VOG Beta",
+  "description": "Beta-версия VOG Мобильного помощника для безопасного тестирования на Yandex Cloud",
   "lang": "ru",
-  "start_url": "./",
+  "start_url": "./?channel=beta",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -29,5 +29,5 @@
       "purpose": "maskable"
     }
   ],
-  "version": "6.4"
+  "version": "beta-0.1"
 }
