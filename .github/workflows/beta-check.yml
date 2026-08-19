@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - beta/yandex-mobile
+  pull_request:
+    branches:
+      - beta/yandex-mobile
   workflow_dispatch:
 
 permissions:
