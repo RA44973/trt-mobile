@@ -1,4 +1,5 @@
-const CACHE_NAME = 'trt-mobile-v2-9-vog-mobile-helper';
+const CACHE_NAME = 'trt-mobile-v2-10-media-gateway-fix';
+const API_ORIGIN = 'https://d5dukure58mpc70n6ftu.uvah0e6r.apigw.yandexcloud.net';
 const SHELL = [
   './',
   './index.html',
@@ -31,13 +32,63 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
+function mediaOperationForPath(pathname) {
+  if (pathname === '/media/upload-url') return 'media_upload_url';
+  if (pathname === '/media/complete') return 'media_complete';
+  if (pathname === '/media/thumbnail-url') return 'media_thumbnail_url';
+  if (pathname === '/media') return 'media_list';
+  return '';
+}
 
+async function routeMediaThroughPublishedGateway(request, requestUrl) {
+  const operation = mediaOperationForPath(requestUrl.pathname);
+  if (!operation) return fetch(request);
+
+  let body = {};
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    try {
+      const text = await request.clone().text();
+      if (text) body = JSON.parse(text);
+    } catch (_) {
+      body = {};
+    }
+  }
+  body = { ...body, operation };
+
+  const headers = new Headers();
+  const authorization = request.headers.get('Authorization');
+  if (authorization) headers.set('Authorization', authorization);
+  headers.set('Content-Type', 'application/json');
+
+  // /employees is already published in API Gateway. API v7.1.16+ multiplexes
+  // media operations there, so mobile photo sync no longer depends on missing
+  // standalone /media/* Gateway routes.
+  return fetch(`${API_ORIGIN}/employees`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    cache: 'no-store',
+    mode: 'cors'
+  });
+}
+
+self.addEventListener('fetch', event => {
   const request = event.request;
   const requestUrl = new URL(request.url);
 
-  // Внешние запросы, включая API авторизации и карты, никогда не кешируем.
+  // Repair only media-control API calls. Direct PUT to the signed Object Storage
+  // URL is intentionally left untouched and uses the bucket CORS rule.
+  if (
+    requestUrl.origin === API_ORIGIN &&
+    mediaOperationForPath(requestUrl.pathname)
+  ) {
+    event.respondWith(routeMediaThroughPublishedGateway(request, requestUrl));
+    return;
+  }
+
+  if (request.method !== 'GET') return;
+
+  // External requests (authorization, API, map tiles) are never cached.
   if (requestUrl.origin !== self.location.origin) return;
 
   if (request.mode === 'navigate') {
